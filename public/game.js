@@ -49,6 +49,16 @@ const voiceStatus = document.getElementById("voiceStatus");
 const restartBtn = document.getElementById("restartBtn");
 const leaveBtn = document.getElementById("leaveBtn");
 const remoteAudio = document.getElementById("remoteAudio");
+const enableAudioBtn = document.getElementById("enableAudioBtn");
+
+enableAudioBtn.addEventListener("click", () => {
+  remoteAudio.play()
+    .then(() => {
+      enableAudioBtn.classList.add("hidden");
+      voiceStatus.textContent = "Voice: đã kết nối 🎧";
+    })
+    .catch((err) => console.error("Vẫn không phát được audio:", err));
+});
 
 // ============ Join room ============
 joinBtn.addEventListener("click", joinRoom);
@@ -296,6 +306,15 @@ async function createPeerConnection() {
   peerConnection.ontrack = (event) => {
     remoteAudio.srcObject = event.streams[0];
     voiceStatus.textContent = "Voice: đã kết nối 🎧";
+
+    // Safari/iOS thường chặn autoplay -> thử play() thủ công, nếu bị chặn thì hiện nút bấm
+    const playPromise = remoteAudio.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(() => {
+        voiceStatus.textContent = "Voice: đã kết nối - bấm nút bên dưới để nghe";
+        enableAudioBtn.classList.remove("hidden");
+      });
+    }
   };
 
   peerConnection.onicecandidate = (event) => {
