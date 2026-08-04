@@ -1,6 +1,28 @@
 // ============ Cấu hình ============
 const SYMBOLS = ["🍎","🍌","🍇","🍓","🍒","🍑","🍍","🥝"]; // 8 cặp = 16 thẻ
-const STUN_SERVERS = [{ urls: "stun:stun.l.google.com:19302" }];
+const STUN_SERVERS = [
+  { urls: "stun:stun.relay.metered.ca:80" },
+  {
+    urls: "turn:global.relay.metered.ca:80",
+    username: "000b83dcd782bd24ab7f2e82",
+    credential: "RTFjpUjJAuzOclzX",
+  },
+  {
+    urls: "turn:global.relay.metered.ca:80?transport=tcp",
+    username: "000b83dcd782bd24ab7f2e82",
+    credential: "RTFjpUjJAuzOclzX",
+  },
+  {
+    urls: "turn:global.relay.metered.ca:443",
+    username: "000b83dcd782bd24ab7f2e82",
+    credential: "RTFjpUjJAuzOclzX",
+  },
+  {
+    urls: "turns:global.relay.metered.ca:443?transport=tcp",
+    username: "000b83dcd782bd24ab7f2e82",
+    credential: "RTFjpUjJAuzOclzX",
+  },
+];
 
 // ============ State ============
 let ws = null;
