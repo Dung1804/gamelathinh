@@ -40,11 +40,28 @@ wss.on('connection', (ws) => {
       }
 
       currentRoom = code;
-      const isFirst = room.size === 0;
-      room.add(ws);
-      ws.roomCode = code;
+const isFirst = room.size === 0;
 
-      ws.send(JSON.stringify({ type: 'joined', isHost: isFirst, peersInRoom: room.size }));
+ws.playerName = String(msg.name || '').trim() || (isFirst ? 'Người chơi 1' : 'Người chơi 2');
+
+room.add(ws);
+ws.roomCode = code;
+      ws.send(JSON.stringify({
+  type: 'joined',
+  isHost: isFirst,
+  peersInRoom: room.size
+}));
+
+// gửi danh sách tên hiện tại cho tất cả trong phòng
+const players = [...room].map(c => c.playerName);
+for (const client of room) {
+  if (client.readyState === 1) {
+    client.send(JSON.stringify({
+      type: 'playersUpdate',
+      players
+    }));
+  }
+}));
 
       // báo cho người còn lại trong phòng (nếu có) là đã có người mới vào
       broadcastToRoom(code, ws, { type: 'peerJoined' });
@@ -63,6 +80,15 @@ wss.on('connection', (ws) => {
       const room = rooms.get(currentRoom);
       room.delete(ws);
       broadcastToRoom(currentRoom, ws, { type: 'peerLeft' });
+	  const players = [...room].map(c => c.playerName);
+for (const client of room) {
+  if (client.readyState === 1) {
+    client.send(JSON.stringify({
+      type: 'playersUpdate',
+      players
+    }));
+  }
+}
       if (room.size === 0) rooms.delete(currentRoom);
     }
   });

@@ -284,3 +284,30 @@ button.danger {
   0%, 100% { transform: translateX(-50%) scale(1); }
   50% { transform: translateX(-50%) scale(1.05); }
 }
+.scoreboard{
+  width:100%;
+  max-width:480px;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin-bottom:16px;
+}
+
+.player-score{
+  background:rgba(255,255,255,0.75);
+  border-radius:16px;
+  padding:12px;
+  text-align:center;
+  box-shadow:0 4px 10px rgba(0,0,0,0.08);
+}
+
+.player-score span{
+  display:block;
+  font-size:0.9rem;
+  margin-bottom:6px;
+}
+
+.player-score strong{
+  font-size:1.4rem;
+  color:#ff5d8f;
+}

@@ -10,6 +10,9 @@
 
   <div id="joinScreen" class="screen">
     <h1>Lật Hình Cùng Nhau 💕</h1>
+	<input id="playerNameInput" type="text"
+       placeholder="Nhập tên của bạn"
+       maxlength="16" />
     <p class="subtitle">Nhập cùng một mã phòng để vào chơi chung nhé</p>
     <input id="roomInput" type="text" placeholder="Nhập mã phòng (vd: YEU123)" maxlength="12" autocapitalize="characters" />
     <button id="joinBtn">Vào phòng</button>
@@ -18,6 +21,17 @@
 
   <div id="gameScreen" class="screen hidden">
     <div class="topbar">
+	  <div class="scoreboard">
+  <div class="player-score">
+    <span id="player1Name">Người chơi 1</span>
+    <strong id="player1Score">0</strong>
+  </div>
+
+  <div class="player-score">
+    <span id="player2Name">Người chơi 2</span>
+    <strong id="player2Score">0</strong>
+  </div>
+</div>
       <span id="turnIndicator" class="turn-indicator">Đang chờ...</span>
       <div class="voice-controls">
         <button id="muteBtn" class="icon-btn" title="Tắt/bật mic">🎤</button>
@@ -40,6 +54,7 @@
   <div id="debugLog" class="debug-log hidden"></div>
 	<!-- Âm thanh game -->
   <audio id="bgm" src="sounds/bgm.mp3" loop></audio>
+  <audio id="matchSound" src="sounds/match.mp3"></audio>
   <audio id="flipSound" src="sounds/flip.mp3"></audio>
   <audio id="winSound" src="sounds/win.mp3"></audio>
 

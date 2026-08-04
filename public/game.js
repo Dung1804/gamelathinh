@@ -6,7 +6,9 @@ const SYMBOLS = [
 ];
 
 let currentLevel = 1;
-let cardCount = 18; // bắt đầu 18 thẻ
+const LEVELS = [20, 24, 30, 36, 42, 48];
+let currentLevel = 1;
+let cardCount = LEVELS[0]; // bắt đầu 20 thẻ
 const STUN_SERVERS = [
   { urls: "stun:stun.relay.metered.ca:80" },
   {
@@ -32,13 +34,16 @@ const STUN_SERVERS = [
 ];
 
 // ============ State ============
+
 let ws = null;
 let isHost = false;
 let cards = [];           // [{symbolIndex, isFaceUp, isMatched}]
 let isMyTurn = false;
 let firstFlippedIndex = null;
 let lockBoard = false;
-
+let myName = '';
+let playerNames = ['Người chơi 1', 'Người chơi 2'];
+let scores = [0, 0]; // [host, guest]
 let peerConnection = null;
 let localStream = null;
 let isMuted = false;
@@ -50,6 +55,12 @@ let disconnectTimer = null;
 const joinScreen = document.getElementById("joinScreen");
 const gameScreen = document.getElementById("gameScreen");
 const roomInput = document.getElementById("roomInput");
+const playerNameInput = document.getElementById('playerNameInput');
+
+const player1NameEl = document.getElementById('player1Name');
+const player2NameEl = document.getElementById('player2Name');
+const player1ScoreEl = document.getElementById('player1Score');
+const player2ScoreEl = document.getElementById('player2Score');
 const joinBtn = document.getElementById("joinBtn");
 const statusText = document.getElementById("statusText");
 const boardEl = document.getElementById("board");
@@ -64,6 +75,7 @@ const enableAudioBtn = document.getElementById("enableAudioBtn");
 // Âm thanh
 const bgm = document.getElementById("bgm");
 const flipSound = document.getElementById("flipSound");
+const matchSound = document.getElementById("matchSound");
 const winSound = document.getElementById("winSound");
 const winOverlay = document.getElementById("winOverlay");
 const levelText = document.getElementById("levelText");
@@ -119,6 +131,7 @@ joinBtn.addEventListener("click", joinRoom);
 roomInput.addEventListener("keydown", (e) => { if (e.key === "Enter") joinRoom(); });
 
 function joinRoom() {
+	myName = playerNameInput.value.trim() || 'Khách';
   const room = roomInput.value.trim().toUpperCase();
   if (!room) {
     statusText.textContent = "Nhập mã phòng trước đã nhé";
@@ -129,7 +142,7 @@ function joinRoom() {
   ws = new WebSocket(`${protocol}//${location.host}`);
 
   ws.onopen = () => {
-    ws.send(JSON.stringify({ type: "join", room }));
+    ws.send(JSON.stringify({ type: 'join', room, name: myName }));
     statusText.textContent = "Đang vào phòng...";
     logDebug(`WS đã mở, gửi join room=${room}`);
   };
@@ -155,7 +168,10 @@ function handleServerMessage(msg) {
     case "roomFull":
       statusText.textContent = "Phòng này đã có 2 người rồi, thử mã khác nhé";
       break;
-
+	case 'scoreUpdate':
+  scores = msg.scores;
+  updateScoreboard();
+  break;
     case "joined":
       isHost = msg.isHost;
       logDebug(`Đã join phòng, role: ${isHost ? "HOST" : "GUEST"}`);
@@ -189,7 +205,11 @@ function handleServerMessage(msg) {
     case "flipCard":
       applyRemoteFlip(msg.index);
       break;
-
+	case 'playersUpdate':
+  playerNames[0] = msg.players[0] || 'Người chơi 1';
+  playerNames[1] = msg.players[1] || 'Người chơi 2';
+  updateScoreboard();
+  break;
     case "syncFullState":
       cards = msg.cards;
       isMyTurn = msg.turnIsHost === isHost;
@@ -212,10 +232,13 @@ function handleServerMessage(msg) {
       handleRemoteIce(msg.candidate);
       break;
   }
+  
 }
 
 // ============ Game logic ============
 function setupNewGame() {
+	scores = [0, 0];
+updateScoreboard();
   const pairCount = cardCount / 2;
   const deck = [];
 
@@ -288,12 +311,22 @@ function evaluateMatch(i1, i2) {
   const match = cards[i1].symbolIndex === cards[i2].symbolIndex;
 
   if (match) {
-    cards[i1].isMatched = true;
-    cards[i2].isMatched = true;
-    lockBoard = false;
-    renderBoard();
-    broadcastFullState(isHost); // vẫn giữ lượt hiện tại
-  } else {
+  cards[i1].isMatched = true;
+  cards[i2].isMatched = true;
+
+  // cộng điểm
+  if (isHost) scores[0] += 10;
+  else scores[1] += 10;
+
+  updateScoreboard();
+
+  // gửi điểm sang người còn lại
+  sendMessage({ type: 'scoreUpdate', scores });
+
+  lockBoard = false;
+  renderBoard();
+  broadcastFullState(isHost); // vẫn giữ lượt hiện tại
+} else {
     setTimeout(() => {
       cards[i1].isFaceUp = false;
       cards[i2].isFaceUp = false;
@@ -320,19 +353,30 @@ function updateTurnIndicator() {
     turnIndicator.textContent = "🎉 Hoàn thành màn!";
     playSound(winSound);
 
-    levelText.textContent =
-      `Màn ${currentLevel} hoàn thành - ${cardCount} thẻ`;
+    let resultText = '';
+
+if (scores[0] > scores[1]) {
+  resultText = `🏆 ${playerNames[0]} thắng!`;
+} else if (scores[1] > scores[0]) {
+  resultText = `🏆 ${playerNames[1]} thắng!`;
+} else {
+  resultText = '🤝 Hòa!';
+}
+
+levelText.textContent =
+  `Màn ${currentLevel} hoàn thành - ${cardCount} thẻ\n${resultText}`;
 
     winOverlay.classList.remove("hidden");
 
     setTimeout(() => {
       winOverlay.classList.add("hidden");
 
-      // tăng màn và số thẻ
-      currentLevel++;
+      // tăng màn
+currentLevel++;
 
-      // tăng 2 thẻ mỗi màn, tối đa 48 thẻ
-      cardCount = Math.min(cardCount + 2, 48);
+// lấy số thẻ theo danh sách LEVELS
+const nextIndex = Math.min(currentLevel - 1, LEVELS.length - 1);
+cardCount = LEVELS[nextIndex];
 
       if (isHost) {
         setupNewGame();
@@ -541,3 +585,11 @@ muteBtn.addEventListener("click", () => {
   muteBtn.classList.toggle("muted", isMuted);
   muteBtn.textContent = isMuted ? "🔇" : "🎤";
 });
+
+function updateScoreboard() {
+  player1NameEl.textContent = playerNames[0];
+  player2NameEl.textContent = playerNames[1];
+
+  player1ScoreEl.textContent = scores[0];
+  player2ScoreEl.textContent = scores[1];
+}
