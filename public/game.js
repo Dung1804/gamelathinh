@@ -1,23 +1,6 @@
 // ============ Cấu hình ============
 const SYMBOLS = ["🍎","🍌","🍇","🍓","🍒","🍑","🍍","🥝"]; // 8 cặp = 16 thẻ
-const STUN_SERVERS = [
-  { urls: "stun:stun.l.google.com:19302" },
-  {
-    urls: "turn:openrelay.metered.ca:80",
-    username: "openrelayproject",
-    credential: "openrelayproject"
-  },
-  {
-    urls: "turn:openrelay.metered.ca:443",
-    username: "openrelayproject",
-    credential: "openrelayproject"
-  },
-  {
-    urls: "turn:openrelay.metered.ca:443?transport=tcp",
-    username: "openrelayproject",
-    credential: "openrelayproject"
-  }
-];
+const STUN_SERVERS = [{ urls: "stun:stun.l.google.com:19302" }];
 
 // ============ State ============
 let ws = null;
@@ -253,17 +236,35 @@ function sendMessage(obj) {
 }
 
 // ============ WebRTC voice call ============
-async function startVoiceCall() {
-  try {
-    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-    voiceStatus.textContent = "Voice: đã bật mic, chờ kết nối...";
-  } catch (err) {
-    voiceStatus.textContent = "Voice: không lấy được mic (kiểm tra quyền truy cập)";
-    console.error(err);
+let micReadyPromise = null;
+
+function startVoiceCall() {
+  // trả về 1 promise duy nhất, dùng lại nếu gọi nhiều lần
+  if (!micReadyPromise) {
+    micReadyPromise = navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+      .then((stream) => {
+        localStream = stream;
+        voiceStatus.textContent = "Voice: đã bật mic, chờ kết nối...";
+        return stream;
+      })
+      .catch((err) => {
+        voiceStatus.textContent = "Voice: không lấy được mic (kiểm tra quyền truy cập)";
+        console.error(err);
+        throw err;
+      });
   }
+  return micReadyPromise;
 }
 
-function createPeerConnection() {
+async function createPeerConnection() {
+  // QUAN TRỌNG: phải đợi mic sẵn sàng trước khi tạo kết nối,
+  // nếu không bên nào chưa có mic sẽ không gửi được audio track
+  try {
+    await startVoiceCall();
+  } catch {
+    // vẫn tiếp tục tạo kết nối dù không có mic, để ít nhất nghe được người kia
+  }
+
   peerConnection = new RTCPeerConnection({ iceServers: STUN_SERVERS });
 
   if (localStream) {
@@ -289,14 +290,14 @@ function createPeerConnection() {
 }
 
 async function callPeer() {
-  createPeerConnection();
+  await createPeerConnection();
   const offer = await peerConnection.createOffer();
   await peerConnection.setLocalDescription(offer);
   sendMessage({ type: "webrtc-offer", offer });
 }
 
 async function handleOffer(offer) {
-  createPeerConnection();
+  await createPeerConnection();
   await peerConnection.setRemoteDescription(offer);
   const answer = await peerConnection.createAnswer();
   await peerConnection.setLocalDescription(answer);
