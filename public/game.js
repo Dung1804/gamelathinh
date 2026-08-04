@@ -1,6 +1,23 @@
 // ============ Cấu hình ============
 const SYMBOLS = ["🍎","🍌","🍇","🍓","🍒","🍑","🍍","🥝"]; // 8 cặp = 16 thẻ
-const STUN_SERVERS = [{ urls: "stun:stun.l.google.com:19302" }];
+const STUN_SERVERS = [
+  { urls: "stun:stun.l.google.com:19302" },
+  {
+    urls: "turn:openrelay.metered.ca:80",
+    username: "openrelayproject",
+    credential: "openrelayproject"
+  },
+  {
+    urls: "turn:openrelay.metered.ca:443",
+    username: "openrelayproject",
+    credential: "openrelayproject"
+  },
+  {
+    urls: "turn:openrelay.metered.ca:443?transport=tcp",
+    username: "openrelayproject",
+    credential: "openrelayproject"
+  }
+];
 
 // ============ State ============
 let ws = null;
