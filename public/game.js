@@ -35,6 +35,9 @@ let lockBoard = false;
 let peerConnection = null;
 let localStream = null;
 let isMuted = false;
+let pendingCandidates = [];
+let remoteDescriptionSet = false;
+let disconnectTimer = null;
 
 // ============ DOM refs ============
 const joinScreen = document.getElementById("joinScreen");
@@ -298,6 +301,9 @@ async function createPeerConnection() {
   }
 
   peerConnection = new RTCPeerConnection({ iceServers: STUN_SERVERS });
+  pendingCandidates = [];
+  remoteDescriptionSet = false;
+  disconnectTimer = null;
 
   if (localStream) {
     localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
@@ -323,9 +329,41 @@ async function createPeerConnection() {
     }
   };
 
+  peerConnection.oniceconnectionstatechange = () => {
+    console.log("ICE state:", peerConnection.iceConnectionState);
+  };
+
   peerConnection.onconnectionstatechange = () => {
+    console.log("Connection state:", peerConnection.connectionState);
+
+    if (peerConnection.connectionState === "connected") {
+      // kết nối lại thành công -> hủy báo mất kết nối nếu đang chờ
+      if (disconnectTimer) {
+        clearTimeout(disconnectTimer);
+        disconnectTimer = null;
+      }
+      voiceStatus.textContent = "Voice: đã kết nối 🎧";
+      return;
+    }
+
     if (peerConnection.connectionState === "disconnected" || peerConnection.connectionState === "failed") {
-      voiceStatus.textContent = "Voice: mất kết nối";
+      // "disconnected" có thể chỉ là chập chờn tạm thời (rebind mạng...) -> đợi 4s xem có tự phục hồi không
+      // trước khi báo mất kết nối và thử ICE restart
+      if (disconnectTimer) return;
+      voiceStatus.textContent = "Voice: đang kết nối lại...";
+      disconnectTimer = setTimeout(async () => {
+        if (peerConnection && peerConnection.connectionState !== "connected") {
+          voiceStatus.textContent = "Voice: mất kết nối, đang thử lại...";
+          try {
+            const offer = await peerConnection.createOffer({ iceRestart: true });
+            await peerConnection.setLocalDescription(offer);
+            sendMessage({ type: "webrtc-offer", offer });
+          } catch (err) {
+            console.error("Lỗi thử kết nối lại:", err);
+          }
+        }
+        disconnectTimer = null;
+      }, 4000);
     }
   };
 }
@@ -340,20 +378,41 @@ async function callPeer() {
 async function handleOffer(offer) {
   await createPeerConnection();
   await peerConnection.setRemoteDescription(offer);
+  remoteDescriptionSet = true;
+  await flushPendingCandidates();
   const answer = await peerConnection.createAnswer();
   await peerConnection.setLocalDescription(answer);
   sendMessage({ type: "webrtc-answer", answer });
 }
 
 async function handleAnswer(answer) {
-  if (peerConnection) await peerConnection.setRemoteDescription(answer);
+  if (!peerConnection) return;
+  await peerConnection.setRemoteDescription(answer);
+  remoteDescriptionSet = true;
+  await flushPendingCandidates();
 }
 
 async function handleRemoteIce(candidate) {
+  if (!peerConnection || !remoteDescriptionSet) {
+    // remoteDescription chưa sẵn sàng -> xếp hàng đợi, xử lý sau khi flushPendingCandidates() chạy
+    pendingCandidates.push(candidate);
+    return;
+  }
   try {
-    if (peerConnection) await peerConnection.addIceCandidate(candidate);
+    await peerConnection.addIceCandidate(candidate);
   } catch (err) {
     console.error("Lỗi ICE candidate:", err);
+  }
+}
+
+async function flushPendingCandidates() {
+  while (pendingCandidates.length > 0) {
+    const candidate = pendingCandidates.shift();
+    try {
+      await peerConnection.addIceCandidate(candidate);
+    } catch (err) {
+      console.error("Lỗi ICE candidate (hàng đợi):", err);
+    }
   }
 }
 
