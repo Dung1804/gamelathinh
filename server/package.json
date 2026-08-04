@@ -1,0 +1,16 @@
+{
+  "name": "memory-voice-webapp",
+  "version": "1.0.0",
+  "description": "Game lat hinh 2 nguoi + voice call, dung cho 2 nguoi choi rieng tu",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "ws": "^8.17.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

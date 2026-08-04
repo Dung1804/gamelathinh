@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no" />
+<title>Lật Hình Cùng Nhau 💕</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div id="joinScreen" class="screen">
+    <h1>Lật Hình Cùng Nhau 💕</h1>
+    <p class="subtitle">Nhập cùng một mã phòng để vào chơi chung nhé</p>
+    <input id="roomInput" type="text" placeholder="Nhập mã phòng (vd: YEU123)" maxlength="12" autocapitalize="characters" />
+    <button id="joinBtn">Vào phòng</button>
+    <p id="statusText" class="status"></p>
+  </div>
+
+  <div id="gameScreen" class="screen hidden">
+    <div class="topbar">
+      <span id="turnIndicator" class="turn-indicator">Đang chờ...</span>
+      <div class="voice-controls">
+        <button id="muteBtn" class="icon-btn" title="Tắt/bật mic">🎤</button>
+        <span id="voiceStatus" class="voice-status">Voice: đang kết nối...</span>
+      </div>
+    </div>
+
+    <div id="board" class="board"></div>
+
+    <div class="bottombar">
+      <button id="restartBtn">Chơi lại</button>
+      <button id="leaveBtn" class="danger">Rời phòng</button>
+    </div>
+  </div>
+
+  <audio id="remoteAudio" autoplay playsinline></audio>
+
+  <script src="game.js"></script>
+</body>
+</html>
