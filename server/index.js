@@ -52,8 +52,9 @@ ws.roomCode = code;
   peersInRoom: room.size
 }));
 
-// gửi danh sách tên hiện tại cho tất cả trong phòng
+// ===== THÊM ĐOẠN NÀY =====
 const players = [...room].map(c => c.playerName);
+
 for (const client of room) {
   if (client.readyState === 1) {
     client.send(JSON.stringify({
@@ -61,11 +62,12 @@ for (const client of room) {
       players
     }));
   }
-}));
+}
+// ==========================
 
-      // báo cho người còn lại trong phòng (nếu có) là đã có người mới vào
-      broadcastToRoom(code, ws, { type: 'peerJoined' });
-      return;
+// báo cho người còn lại trong phòng (nếu có) là đã có người mới vào
+broadcastToRoom(code, ws, { type: 'peerJoined' });
+return;
     }
 
     // mọi message khác (flipCard, syncFullState, restartGame, webrtc-offer/answer/ice...)
