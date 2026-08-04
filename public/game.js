@@ -5,7 +5,6 @@ const SYMBOLS = [
   "🐶","🐱","🐼","🐸","🦊","🐵","🐰","🐻"
 ];
 
-let currentLevel = 1;
 const LEVELS = [20, 24, 30, 36, 42, 48];
 let currentLevel = 1;
 let cardCount = LEVELS[0]; // bắt đầu 20 thẻ
