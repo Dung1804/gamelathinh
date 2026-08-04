@@ -262,8 +262,16 @@ function shuffle(arr) {
 }
 
 function renderBoard() {
-  const cols = Math.ceil(Math.sqrt(cards.length));
-  boardEl.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+ let cols = 4;
+
+if (cards.length === 20) cols = 5;      // 5 x 4
+else if (cards.length === 24) cols = 6; // 6 x 4
+else if (cards.length === 30) cols = 6; // 6 x 5
+else if (cards.length === 36) cols = 6; // 6 x 6
+else if (cards.length === 42) cols = 7; // 7 x 6
+else if (cards.length >= 48) cols = 8;  // 8 x 6
+
+boardEl.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
   boardEl.innerHTML = "";
   cards.forEach((card, index) => {
     const cardEl = document.createElement("div");
