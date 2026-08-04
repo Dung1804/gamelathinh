@@ -38,6 +38,17 @@
 
   <button id="toggleLogBtn" class="toggle-log-btn">🐞 Log</button>
   <div id="debugLog" class="debug-log hidden"></div>
+	<!-- Âm thanh game -->
+  <audio id="bgm" src="sounds/bgm.mp3" loop></audio>
+  <audio id="flipSound" src="sounds/flip.mp3"></audio>
+  <audio id="winSound" src="sounds/win.mp3"></audio>
+
+  <div id="winOverlay" class="win-overlay hidden">
+    <div class="win-box">
+      <h2>🎉 Qua màn!</h2>
+      <p id="levelText"></p>
+    </div>
+  </div>
 
   <script src="game.js"></script>
 </body>

@@ -240,7 +240,42 @@ button.danger {
   white-space: pre-wrap;
   word-break: break-word;
 }
+/* ===== Hiệu ứng chiến thắng ===== */
+.win-overlay{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
 
+.win-box{
+  background: white;
+  padding: 32px 40px;
+  border-radius: 24px;
+  text-align: center;
+  animation: popWin 0.5s ease;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+}
+
+.win-box h2{
+  margin: 0 0 12px;
+  font-size: 2rem;
+  color: #ff5d8f;
+}
+
+.win-box p{
+  margin: 0;
+  font-weight: 700;
+}
+
+@keyframes popWin{
+  0%{ transform: scale(0.4) rotate(-8deg); opacity: 0; }
+  70%{ transform: scale(1.08) rotate(2deg); opacity: 1; }
+  100%{ transform: scale(1) rotate(0); }
+}
 .debug-log .log-error {
   color: #ff6b6b;
 }

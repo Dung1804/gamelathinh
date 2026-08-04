@@ -1,5 +1,12 @@
 // ============ Cấu hình ============
-const SYMBOLS = ["🍎","🍌","🍇","🍓","🍒","🍑","🍍","🥝"]; // 8 cặp = 16 thẻ
+const SYMBOLS = [
+  "🍎","🍌","🍇","🍓","🍒","🍑","🍍","🥝",
+  "🥥","🍉","🍋","🍐","🍈","🥭","🍊","🍏",
+  "🐶","🐱","🐼","🐸","🦊","🐵","🐰","🐻"
+];
+
+let currentLevel = 1;
+let cardCount = 18; // bắt đầu 18 thẻ
 const STUN_SERVERS = [
   { urls: "stun:stun.relay.metered.ca:80" },
   {
@@ -53,6 +60,18 @@ const restartBtn = document.getElementById("restartBtn");
 const leaveBtn = document.getElementById("leaveBtn");
 const remoteAudio = document.getElementById("remoteAudio");
 const enableAudioBtn = document.getElementById("enableAudioBtn");
+
+// Âm thanh
+const bgm = document.getElementById("bgm");
+const flipSound = document.getElementById("flipSound");
+const winSound = document.getElementById("winSound");
+const winOverlay = document.getElementById("winOverlay");
+const levelText = document.getElementById("levelText");
+
+function playSound(audio) {
+  audio.currentTime = 0;
+  audio.play().catch(() => {});
+}
 
 enableAudioBtn.addEventListener("click", () => {
   remoteAudio.play()
@@ -142,6 +161,8 @@ function handleServerMessage(msg) {
       logDebug(`Đã join phòng, role: ${isHost ? "HOST" : "GUEST"}`);
       joinScreen.classList.add("hidden");
       gameScreen.classList.remove("hidden");
+	  bgm.volume = 0.35;
+	  bgm.play().catch(() => {});
       if (isHost) {
         turnIndicator.textContent = "Đang chờ người kia vào phòng...";
       } else {
@@ -195,17 +216,20 @@ function handleServerMessage(msg) {
 
 // ============ Game logic ============
 function setupNewGame() {
+  const pairCount = cardCount / 2;
   const deck = [];
-  SYMBOLS.forEach((_, i) => {
+
+  for (let i = 0; i < pairCount; i++) {
     deck.push({ symbolIndex: i, isFaceUp: false, isMatched: false });
     deck.push({ symbolIndex: i, isFaceUp: false, isMatched: false });
-  });
+  }
+
   shuffle(deck);
   cards = deck;
-  isMyTurn = true; // host đi trước
+  isMyTurn = true;
   renderBoard();
   updateTurnIndicator();
-  broadcastFullState(true); // turnIsHost = true (host đang đi)
+  broadcastFullState(true);
 }
 
 function shuffle(arr) {
@@ -216,6 +240,8 @@ function shuffle(arr) {
 }
 
 function renderBoard() {
+  const cols = Math.ceil(Math.sqrt(cards.length));
+  boardEl.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
   boardEl.innerHTML = "";
   cards.forEach((card, index) => {
     const cardEl = document.createElement("div");
@@ -237,6 +263,7 @@ function onCardClick(index) {
   if (card.isFaceUp || card.isMatched) return;
 
   card.isFaceUp = true;
+  playSound(flipSound);
   renderBoard();
   sendMessage({ type: "flipCard", index });
 
@@ -288,11 +315,35 @@ function broadcastFullState(turnIsHost) {
 
 function updateTurnIndicator() {
   const allMatched = cards.length > 0 && cards.every(c => c.isMatched);
+
   if (allMatched) {
-    turnIndicator.textContent = "🎉 Xong rồi! Bấm Chơi lại để chơi tiếp";
+    turnIndicator.textContent = "🎉 Hoàn thành màn!";
+    playSound(winSound);
+
+    levelText.textContent =
+      `Màn ${currentLevel} hoàn thành - ${cardCount} thẻ`;
+
+    winOverlay.classList.remove("hidden");
+
+    setTimeout(() => {
+      winOverlay.classList.add("hidden");
+
+      // tăng màn và số thẻ
+      currentLevel++;
+
+      // tăng 2 thẻ mỗi màn, tối đa 48 thẻ
+      cardCount = Math.min(cardCount + 2, 48);
+
+      if (isHost) {
+        setupNewGame();
+      }
+    }, 2500);
+
     return;
   }
-  turnIndicator.textContent = isMyTurn ? "👉 Lượt của bạn" : "⏳ Đang chờ người kia...";
+
+  turnIndicator.textContent =
+    isMyTurn ? "👉 Lượt của bạn" : "⏳ Đang chờ người kia...";
 }
 
 restartBtn.addEventListener("click", () => {
