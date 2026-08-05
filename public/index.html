@@ -22,7 +22,9 @@
         <button class="mode-btn" data-mode="hoathinh">🎭<span>Hoạt hình</span></button>
         <button class="mode-btn" data-mode="convat">🐾<span>Con vật</span></button>
         <button class="mode-btn" data-mode="hoaqua">🍎<span>Hoa quả</span></button>
+        <button class="mode-btn" data-mode="kyniem">🖼️<span>Ảnh kỷ niệm</span></button>
       </div>
+      <button id="openPhotoLibraryBtn" type="button" class="link-btn">🗂️ Quản lý kho ảnh kỷ niệm (<span id="photoCountJoin">0</span> ảnh)</button>
     </div>
 
     <div class="mode-select">
@@ -36,6 +38,7 @@
         <button class="mode-btn level-btn" data-level="5">6️⃣<span>48 thẻ</span></button>
       </div>
     </div>
+    <p id="kyniemWarningJoin" class="status hidden"></p>
 
     <input id="roomInput" type="text" placeholder="Nhập mã phòng (vd: YEU123)" maxlength="12" autocapitalize="characters" />
     <button id="joinBtn">Vào phòng</button>
@@ -103,7 +106,9 @@
         <button class="mode-btn" data-mode="hoathinh">🎭<span>Hoạt hình</span></button>
         <button class="mode-btn" data-mode="convat">🐾<span>Con vật</span></button>
         <button class="mode-btn" data-mode="hoaqua">🍎<span>Hoa quả</span></button>
+        <button class="mode-btn" data-mode="kyniem">🖼️<span>Ảnh kỷ niệm</span></button>
       </div>
+      <button id="openPhotoLibraryBtnInGame" type="button" class="link-btn">🗂️ Quản lý kho ảnh kỷ niệm (<span id="photoCountInGame">0</span> ảnh)</button>
       <p class="mode-label" style="margin-top:14px;">Chọn màn bắt đầu</p>
       <div class="mode-options level-options" id="inGameLevelOptions">
         <button class="mode-btn level-btn" data-level="0">1️⃣<span>20 thẻ</span></button>
@@ -113,10 +118,23 @@
         <button class="mode-btn level-btn" data-level="4">5️⃣<span>42 thẻ</span></button>
         <button class="mode-btn level-btn" data-level="5">6️⃣<span>48 thẻ</span></button>
       </div>
+      <p id="kyniemWarningInGame" class="status hidden"></p>
       <div style="display:flex; gap:10px; justify-content:center; margin-top:14px;">
         <button id="confirmChangeModeBtn">✅ Bắt đầu</button>
         <button id="closeChangeModeBtn" class="danger">Đóng</button>
       </div>
+    </div>
+  </div>
+
+  <div id="photoLibraryOverlay" class="win-overlay hidden">
+    <div class="win-box photo-library-box">
+      <h2>🗂️ Kho ảnh kỷ niệm</h2>
+      <p class="mode-label">Kho ảnh dùng chung, cả hai người đều up vào đây được. Màn khó nhất cần 24 ảnh khác nhau.</p>
+      <label class="upload-btn" for="photoUploadInput">📤 Chọn ảnh để up</label>
+      <input id="photoUploadInput" type="file" accept="image/*" multiple class="hidden" />
+      <p id="photoUploadStatus" class="status"></p>
+      <div id="photoGrid" class="photo-grid"></div>
+      <button id="closePhotoLibraryBtn" class="danger" style="margin-top:14px;">Đóng</button>
     </div>
   </div>
 

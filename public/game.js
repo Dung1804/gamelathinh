@@ -28,11 +28,66 @@ const MODE_LABELS = {
   hoathinh: "🎭 Hoạt hình",
   convat: "🐾 Con vật",
   hoaqua: "🍎 Hoa quả",
-  tonghop: "🎉 Tổng hợp"
+  tonghop: "🎉 Tổng hợp",
+  kyniem: "🖼️ Ảnh kỷ niệm"
 };
 
 let currentMode = "tonghop";
 let currentSymbols = SYMBOL_SETS[currentMode];
+
+// 'kyniem' không có bộ biểu tượng tĩnh trong SYMBOL_SETS (ảnh lấy từ kho, xây động lúc chia bài)
+function isKnownMode(mode) {
+  return !!SYMBOL_SETS[mode] || mode === 'kyniem';
+}
+
+function requiredPairsFor(count) {
+  return count / 2;
+}
+
+function hasEnoughPhotos(count) {
+  return memoryPhotos.length >= requiredPairsFor(count);
+}
+
+// ============ Kho ảnh kỷ niệm (dùng chung cho cả web, lưu trên server) ============
+let memoryPhotos = []; // [{id, url, uploader}]
+
+async function fetchMemoryPhotos() {
+  try {
+    const res = await fetch('/api/photos');
+    const data = await res.json();
+    memoryPhotos = Array.isArray(data.photos) ? data.photos : [];
+  } catch {
+    memoryPhotos = [];
+  }
+  updatePhotoCountLabels();
+  return memoryPhotos;
+}
+
+function updatePhotoCountLabels() {
+  const n = memoryPhotos.length;
+  if (photoCountJoinEl) photoCountJoinEl.textContent = n;
+  if (photoCountInGameEl) photoCountInGameEl.textContent = n;
+}
+
+function updateKyniemWarning(scope) {
+  const isJoin = scope === 'join';
+  const mode = isJoin
+    ? currentMode
+    : document.querySelector('#inGameModeOptions .mode-btn.active')?.dataset.mode;
+  const levelIdx = isJoin
+    ? selectedLevelIndex
+    : Number(document.querySelector('#inGameLevelOptions .level-btn.active')?.dataset.level ?? 0);
+  const count = LEVELS[levelIdx] ?? LEVELS[0];
+  const warningEl = isJoin ? kyniemWarningJoinEl : kyniemWarningInGameEl;
+  if (!warningEl) return;
+
+  if (mode === 'kyniem' && !hasEnoughPhotos(count)) {
+    warningEl.textContent = `⚠️ Màn này cần ${requiredPairsFor(count)} ảnh khác nhau, kho hiện chỉ có ${memoryPhotos.length}. Hãy vào "Quản lý kho ảnh" để up thêm nhé.`;
+    warningEl.classList.remove('hidden');
+  } else {
+    warningEl.classList.add('hidden');
+  }
+}
 
 const LEVELS = [20, 24, 30, 36, 42, 48];
 let cardCount = LEVELS[0]; // bắt đầu 20 thẻ
@@ -103,6 +158,18 @@ const inGameModeBtns = document.querySelectorAll('#inGameModeOptions .mode-btn')
 const joinLevelBtns = document.querySelectorAll('#joinLevelOptions .level-btn');
 const inGameLevelBtns = document.querySelectorAll('#inGameLevelOptions .level-btn');
 const confirmChangeModeBtn = document.getElementById('confirmChangeModeBtn');
+const kyniemWarningJoinEl = document.getElementById('kyniemWarningJoin');
+const kyniemWarningInGameEl = document.getElementById('kyniemWarningInGame');
+
+const photoCountJoinEl = document.getElementById('photoCountJoin');
+const photoCountInGameEl = document.getElementById('photoCountInGame');
+const openPhotoLibraryBtn = document.getElementById('openPhotoLibraryBtn');
+const openPhotoLibraryBtnInGame = document.getElementById('openPhotoLibraryBtnInGame');
+const photoLibraryOverlay = document.getElementById('photoLibraryOverlay');
+const closePhotoLibraryBtn = document.getElementById('closePhotoLibraryBtn');
+const photoUploadInput = document.getElementById('photoUploadInput');
+const photoUploadStatus = document.getElementById('photoUploadStatus');
+const photoGridEl = document.getElementById('photoGrid');
 
 const player1NameEl = document.getElementById('player1Name');
 const player2NameEl = document.getElementById('player2Name');
@@ -246,6 +313,7 @@ modeBtns.forEach((btn) => {
     modeBtns.forEach((b) => b.classList.remove("active"));
     btn.classList.add("active");
     currentMode = btn.dataset.mode;
+    updateKyniemWarning('join');
   });
 });
 
@@ -254,6 +322,7 @@ joinLevelBtns.forEach((btn) => {
     joinLevelBtns.forEach((b) => b.classList.remove("active"));
     btn.classList.add("active");
     selectedLevelIndex = Number(btn.dataset.level);
+    updateKyniemWarning('join');
   });
 });
 
@@ -263,6 +332,7 @@ changeModeBtn.addEventListener("click", () => {
   const curLevelIdx = Math.max(0, LEVELS.indexOf(cardCount));
   inGameLevelBtns.forEach((b) => b.classList.toggle("active", Number(b.dataset.level) === curLevelIdx));
   changeModeOverlay.classList.remove("hidden");
+  updateKyniemWarning('inGame');
 });
 
 closeChangeModeBtn.addEventListener("click", () => {
@@ -273,6 +343,7 @@ inGameModeBtns.forEach((btn) => {
   btn.addEventListener("click", () => {
     inGameModeBtns.forEach((b) => b.classList.remove("active"));
     btn.classList.add("active");
+    updateKyniemWarning('inGame');
   });
 });
 
@@ -280,22 +351,33 @@ inGameLevelBtns.forEach((btn) => {
   btn.addEventListener("click", () => {
     inGameLevelBtns.forEach((b) => b.classList.remove("active"));
     btn.classList.add("active");
+    updateKyniemWarning('inGame');
   });
 });
 
-confirmChangeModeBtn.addEventListener("click", () => {
+confirmChangeModeBtn.addEventListener("click", async () => {
   const chosenModeBtn = document.querySelector('#inGameModeOptions .mode-btn.active');
   const chosenLevelBtn = document.querySelector('#inGameLevelOptions .level-btn.active');
   const newMode = chosenModeBtn ? chosenModeBtn.dataset.mode : currentMode;
   const newLevelIndex = chosenLevelBtn ? Number(chosenLevelBtn.dataset.level) : 0;
+  const neededCardCount = LEVELS[newLevelIndex] ?? LEVELS[0];
+
+  if (newMode === 'kyniem') {
+    await fetchMemoryPhotos(); // kiểm tra lại số ảnh mới nhất trước khi bắt đầu
+    if (!hasEnoughPhotos(neededCardCount)) {
+      updateKyniemWarning('inGame');
+      return; // không đóng overlay, không áp dụng
+    }
+  }
+
   changeModeOverlay.classList.add("hidden");
   applyModeChange(newMode, newLevelIndex);
 });
 
 function applyModeChange(newMode, levelIndex = 0) {
   if (isHost) {
-    currentMode = SYMBOL_SETS[newMode] ? newMode : currentMode;
-    currentSymbols = SYMBOL_SETS[currentMode];
+    currentMode = isKnownMode(newMode) ? newMode : currentMode;
+    currentSymbols = SYMBOL_SETS[currentMode] || [];
     modeIndicator.textContent = MODE_LABELS[currentMode];
     cardCount = LEVELS[levelIndex] ?? LEVELS[0];
     setupNewGame();
@@ -309,7 +391,7 @@ function applyModeChange(newMode, levelIndex = 0) {
 joinBtn.addEventListener("click", joinRoom);
 roomInput.addEventListener("keydown", (e) => { if (e.key === "Enter") joinRoom(); });
 
-function joinRoom() {
+async function joinRoom() {
 	myName = playerNameInput.value.trim() || 'Khách';
   const room = roomInput.value.trim().toUpperCase();
   if (!room) {
@@ -317,6 +399,15 @@ function joinRoom() {
     return;
   }
   cardCount = LEVELS[selectedLevelIndex] ?? LEVELS[0];
+
+  if (currentMode === 'kyniem') {
+    await fetchMemoryPhotos();
+    if (!hasEnoughPhotos(cardCount)) {
+      updateKyniemWarning('join');
+      statusText.textContent = `Kho ảnh chưa đủ (cần ${requiredPairsFor(cardCount)} ảnh, hiện có ${memoryPhotos.length}). Hãy up thêm ảnh trước đã nhé.`;
+      return;
+    }
+  }
 
   const protocol = location.protocol === "https:" ? "wss:" : "ws:";
   ws = new WebSocket(`${protocol}//${location.host}`);
@@ -356,9 +447,10 @@ function handleServerMessage(msg) {
     case "joined":
       isHost = msg.isHost;
       // server luôn trả về chế độ chơi thật sự của phòng (do người vào trước quyết định)
-      currentMode = SYMBOL_SETS[msg.mode] ? msg.mode : "tonghop";
-      currentSymbols = SYMBOL_SETS[currentMode];
+      currentMode = isKnownMode(msg.mode) ? msg.mode : "tonghop";
+      currentSymbols = SYMBOL_SETS[currentMode] || []; // với 'kyniem', danh sách ảnh thật sẽ đến từ syncFullState
       modeIndicator.textContent = MODE_LABELS[currentMode];
+      fetchMemoryPhotos(); // để sẵn kho ảnh phòng khi cần đổi chế độ giữa chừng
       logDebug(`Đã join phòng, role: ${isHost ? "HOST" : "GUEST"}, chế độ: ${currentMode}`);
       joinScreen.classList.add("hidden");
       gameScreen.classList.remove("hidden");
@@ -392,14 +484,35 @@ function handleServerMessage(msg) {
 
     case "changeModeRequest":
       // chỉ host mới thực sự áp dụng thay đổi để tránh 2 bên tự set lệch nhau
-      if (isHost && SYMBOL_SETS[msg.mode]) {
-        currentMode = msg.mode;
-        currentSymbols = SYMBOL_SETS[currentMode];
-        modeIndicator.textContent = MODE_LABELS[currentMode];
+      if (isHost && isKnownMode(msg.mode)) {
         const lvlIdx = Number.isInteger(msg.level) ? msg.level : 0;
-        cardCount = LEVELS[lvlIdx] ?? LEVELS[0];
-        setupNewGame();
+        const requestedCardCount = LEVELS[lvlIdx] ?? LEVELS[0];
+
+        const proceed = () => {
+          if (msg.mode === 'kyniem' && !hasEnoughPhotos(requestedCardCount)) {
+            sendMessage({
+              type: 'changeModeRejected',
+              reason: `Kho ảnh chưa đủ (cần ${requiredPairsFor(requestedCardCount)} ảnh, hiện có ${memoryPhotos.length})`,
+            });
+            return;
+          }
+          currentMode = msg.mode;
+          currentSymbols = SYMBOL_SETS[currentMode] || [];
+          modeIndicator.textContent = MODE_LABELS[currentMode];
+          cardCount = requestedCardCount;
+          setupNewGame();
+        };
+
+        if (msg.mode === 'kyniem') {
+          fetchMemoryPhotos().then(proceed); // kiểm tra lại số ảnh mới nhất phía host trước khi áp dụng
+        } else {
+          proceed();
+        }
       }
+      break;
+
+    case "changeModeRejected":
+      turnIndicator.textContent = `❌ ${msg.reason || "Không thể đổi chế độ"}`;
       break;
 
     case "flipCard":
@@ -411,10 +524,14 @@ function handleServerMessage(msg) {
   updateScoreboard();
   break;
     case "syncFullState":
-      if (msg.mode && SYMBOL_SETS[msg.mode] && msg.mode !== currentMode) {
+      if (msg.mode && isKnownMode(msg.mode)) {
         currentMode = msg.mode;
-        currentSymbols = SYMBOL_SETS[currentMode];
         modeIndicator.textContent = MODE_LABELS[currentMode];
+      }
+      if (currentMode === 'kyniem') {
+        if (Array.isArray(msg.symbols)) currentSymbols = msg.symbols;
+      } else {
+        currentSymbols = SYMBOL_SETS[currentMode] || [];
       }
       if (Array.isArray(msg.scores)) {
         scores = msg.scores;
@@ -457,8 +574,9 @@ function setupNewGame(resetScores = true, starterIsHost = true) {
 streaks = [0, 0]; // bàn mới thì combo reset về 0
 updateScoreboard();
   const pairCount = cardCount / 2;
-  const deck = [];
+  currentSymbols = buildPairSymbols(pairCount);
 
+  const deck = [];
   for (let i = 0; i < pairCount; i++) {
     deck.push({ symbolIndex: i, isFaceUp: false, isMatched: false });
     deck.push({ symbolIndex: i, isFaceUp: false, isMatched: false });
@@ -468,6 +586,21 @@ updateScoreboard();
   cards = deck;
   renderBoard();
   broadcastFullState(starterIsHost); // set isMyTurn đúng theo người bắt đầu + đồng bộ sang người kia
+}
+
+// chọn ngẫu nhiên đủ số ảnh cần cho màn hiện tại; nếu vì lý do gì đó (vd ảnh vừa bị xoá) không đủ nữa
+// thì an toàn rơi về chế độ Tổng hợp thay vì làm vỡ bàn chơi
+function buildPairSymbols(pairCount) {
+  if (currentMode === 'kyniem') {
+    if (memoryPhotos.length >= pairCount) {
+      const picked = [...memoryPhotos];
+      shuffle(picked);
+      return picked.slice(0, pairCount).map((p) => p.url);
+    }
+    currentMode = 'tonghop';
+    modeIndicator.textContent = MODE_LABELS[currentMode];
+  }
+  return SYMBOL_SETS[currentMode].slice(0, pairCount);
 }
 
 function shuffle(arr) {
@@ -515,7 +648,11 @@ boardEl.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
     cardEl.innerHTML = `
       <div class="card-inner">
         <div class="card-face card-back"></div>
-        <div class="card-face card-front">${currentSymbols[card.symbolIndex]}</div>
+        <div class="card-face card-front">${
+          currentMode === 'kyniem'
+            ? `<img class="card-photo-img" src="${currentSymbols[card.symbolIndex] || ''}" alt="" draggable="false" />`
+            : (currentSymbols[card.symbolIndex] || '')
+        }</div>
       </div>
     `;
     cardEl.addEventListener("click", () => onCardClick(index));
@@ -621,7 +758,9 @@ function evaluateMatch(i1, i2) {
 }
 
 function broadcastFullState(turnIsHost) {
-  sendMessage({ type: "syncFullState", cards, turnIsHost, mode: currentMode, scores, streaks, lastScorerIsHost });
+  const payload = { type: "syncFullState", cards, turnIsHost, mode: currentMode, scores, streaks, lastScorerIsHost };
+  if (currentMode === 'kyniem') payload.symbols = currentSymbols; // để bên kia dùng đúng y hệt bộ ảnh này
+  sendMessage(payload);
   isMyTurn = (turnIsHost === isHost);
   updateTurnIndicator();
 }
@@ -900,3 +1039,117 @@ function updateStreakBadge(el, streak) {
     el.classList.add('hidden');
   }
 }
+
+// ============ Quản lý kho ảnh kỷ niệm ============
+openPhotoLibraryBtn.addEventListener('click', openPhotoLibrary);
+openPhotoLibraryBtnInGame.addEventListener('click', openPhotoLibrary);
+
+closePhotoLibraryBtn.addEventListener('click', () => {
+  photoLibraryOverlay.classList.add('hidden');
+});
+
+async function openPhotoLibrary() {
+  photoLibraryOverlay.classList.remove('hidden');
+  photoUploadStatus.textContent = 'Đang tải danh sách ảnh...';
+  await fetchMemoryPhotos();
+  photoUploadStatus.textContent = '';
+  renderPhotoGrid();
+  updateKyniemWarning('join');
+  updateKyniemWarning('inGame');
+}
+
+function renderPhotoGrid() {
+  photoGridEl.innerHTML = '';
+  memoryPhotos.forEach((photo) => {
+    const thumb = document.createElement('div');
+    thumb.className = 'photo-thumb';
+    thumb.innerHTML = `
+      <img src="${photo.url}" alt="" loading="lazy" />
+      <button type="button" class="delete-photo-btn" data-id="${photo.id}">✕</button>
+    `;
+    photoGridEl.appendChild(thumb);
+  });
+}
+
+photoGridEl.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.delete-photo-btn');
+  if (!btn) return;
+  const id = btn.dataset.id;
+  btn.disabled = true;
+  try {
+    await fetch(`/api/photos/${id}`, { method: 'DELETE' });
+    memoryPhotos = memoryPhotos.filter((p) => p.id !== id);
+    updatePhotoCountLabels();
+    renderPhotoGrid();
+    updateKyniemWarning('join');
+    updateKyniemWarning('inGame');
+  } catch {
+    photoUploadStatus.textContent = 'Xoá ảnh thất bại, thử lại nhé';
+  }
+});
+
+photoUploadInput.addEventListener('change', async () => {
+  const files = Array.from(photoUploadInput.files || []);
+  if (!files.length) return;
+
+  let done = 0;
+  photoUploadStatus.textContent = `Đang tải lên 0/${files.length}...`;
+
+  for (const file of files) {
+    try {
+      const dataUrl = await resizeImageToDataUrl(file, 480, 0.8);
+      const res = await fetch('/api/photos/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64: dataUrl, uploader: myName || 'Khách' }),
+      });
+      const data = await res.json();
+      if (data.photo) {
+        memoryPhotos.push(data.photo);
+        renderPhotoGrid();
+        updatePhotoCountLabels();
+      }
+    } catch {
+      // bỏ qua ảnh lỗi, tiếp tục up ảnh tiếp theo
+    }
+    done++;
+    photoUploadStatus.textContent = `Đang tải lên ${done}/${files.length}...`;
+  }
+
+  photoUploadStatus.textContent = `Đã up xong ${files.length} ảnh ✅`;
+  photoUploadInput.value = '';
+  updateKyniemWarning('join');
+  updateKyniemWarning('inGame');
+});
+
+// nén & resize ảnh trước khi up (đỡ tốn dung lượng server + tải nhanh trong lúc chơi)
+function resizeImageToDataUrl(file, maxSize, quality) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > height && width > maxSize) {
+          height = Math.round(height * (maxSize / width));
+          width = maxSize;
+        } else if (height >= width && height > maxSize) {
+          width = Math.round(width * (maxSize / height));
+          height = maxSize;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// tải sẵn số lượng ảnh hiện có ngay khi mở trang để màn hình vào phòng hiện đúng số
+fetchMemoryPhotos().then(() => updateKyniemWarning('join'));
