@@ -37,7 +37,7 @@
       </div>
     </div>
 
-    <input id="roomInput" type="text" placeholder="Nhập mã phòng!" maxlength="12" autocapitalize="characters" />
+    <input id="roomInput" type="text" placeholder="Nhập mã phòng (vd: YEU123)" maxlength="12" autocapitalize="characters" />
     <button id="joinBtn">Vào phòng</button>
     <p id="statusText" class="status"></p>
   </div>
@@ -48,11 +48,13 @@
   <div class="player-score">
     <span id="player1Name">Người chơi 1</span>
     <strong id="player1Score">0</strong>
+    <em id="player1Streak" class="streak-badge hidden"></em>
   </div>
 
   <div class="player-score">
     <span id="player2Name">Người chơi 2</span>
     <strong id="player2Score">0</strong>
+    <em id="player2Streak" class="streak-badge hidden"></em>
   </div>
 </div>
       <span id="modeIndicator" class="mode-indicator"></span>

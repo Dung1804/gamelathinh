@@ -79,6 +79,7 @@ let lockBoard = false;
 let myName = '';
 let playerNames = ['Người chơi 1', 'Người chơi 2'];
 let scores = [0, 0]; // [host, guest]
+let streaks = [0, 0]; // combo hiện tại của mỗi người, reset về 0 khi đoán sai hoặc bắt đầu màn mới
 let lastScorerIsHost = null; // ai vừa ăn được cặp gần nhất, dùng để phân định khi hòa điểm
 let peerConnection = null;
 let localStream = null;
@@ -107,6 +108,8 @@ const player1NameEl = document.getElementById('player1Name');
 const player2NameEl = document.getElementById('player2Name');
 const player1ScoreEl = document.getElementById('player1Score');
 const player2ScoreEl = document.getElementById('player2Score');
+const player1StreakEl = document.getElementById('player1Streak');
+const player2StreakEl = document.getElementById('player2Streak');
 const joinBtn = document.getElementById("joinBtn");
 const statusText = document.getElementById("statusText");
 const boardEl = document.getElementById("board");
@@ -130,6 +133,70 @@ const levelText = document.getElementById("levelText");
 function playSound(audio) {
   audio.currentTime = 0;
   audio.play().catch(() => {});
+}
+
+// ---------- Âm thanh combo (tổng hợp bằng Web Audio, không cần file mp3 mới) ----------
+let audioCtx = null;
+function getAudioCtx() {
+  if (!audioCtx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (AC) audioCtx = new AC();
+  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+  return audioCtx;
+}
+
+// cao độ tăng dần theo combo (chặn ở combo 8 cho đỡ chói tai)
+function playComboTone(streak) {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.value = 520 + Math.min(streak, 8) * 70;
+  gain.gain.value = 0.16;
+  osc.connect(gain).connect(ctx.destination);
+  const now = ctx.currentTime;
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+  osc.start(now);
+  osc.stop(now + 0.3);
+}
+
+// tiếng trầm nhẹ khi đoán sai
+function playMissTone() {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.value = 180;
+  gain.gain.value = 0.12;
+  osc.connect(gain).connect(ctx.destination);
+  const now = ctx.currentTime;
+  osc.frequency.exponentialRampToValueAtTime(90, now + 0.25);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+  osc.start(now);
+  osc.stop(now + 0.26);
+}
+
+// ---------- Confetti nhỏ khi ăn cặp (nhiều hơn theo combo) ----------
+function launchConfetti(count = 14) {
+  const container = document.createElement('div');
+  container.className = 'confetti-burst';
+  document.body.appendChild(container);
+  const colors = ['#ff5d8f', '#ffce54', '#4fc3f7', '#81c784', '#ba68c8'];
+  for (let i = 0; i < count; i++) {
+    const piece = document.createElement('span');
+    piece.className = 'confetti-piece';
+    piece.style.left = `${42 + Math.random() * 16}%`;
+    piece.style.top = `${18 + Math.random() * 12}%`;
+    piece.style.background = colors[i % colors.length];
+    piece.style.setProperty('--dx', `${(Math.random() - 0.5) * 240}px`);
+    piece.style.setProperty('--rot', `${(Math.random() - 0.5) * 540}deg`);
+    piece.style.animationDelay = `${Math.random() * 120}ms`;
+    container.appendChild(piece);
+  }
+  setTimeout(() => container.remove(), 1400);
 }
 
 enableAudioBtn.addEventListener("click", () => {
@@ -283,6 +350,7 @@ function handleServerMessage(msg) {
       break;
 	case 'scoreUpdate':
   scores = msg.scores;
+  if (Array.isArray(msg.streaks)) streaks = msg.streaks;
   updateScoreboard();
   break;
     case "joined":
@@ -352,6 +420,10 @@ function handleServerMessage(msg) {
         scores = msg.scores;
         updateScoreboard();
       }
+      if (Array.isArray(msg.streaks)) {
+        streaks = msg.streaks;
+        updateScoreboard();
+      }
       if (typeof msg.lastScorerIsHost === 'boolean') {
         lastScorerIsHost = msg.lastScorerIsHost;
       }
@@ -382,6 +454,7 @@ function handleServerMessage(msg) {
 // ============ Game logic ============
 function setupNewGame(resetScores = true, starterIsHost = true) {
 	if (resetScores) scores = [0, 0];
+streaks = [0, 0]; // bàn mới thì combo reset về 0
 updateScoreboard();
   const pairCount = cardCount / 2;
   const deck = [];
@@ -490,25 +563,50 @@ function evaluateMatch(i1, i2) {
   lockBoard = true;
   firstFlippedIndex = null;
   const match = cards[i1].symbolIndex === cards[i2].symbolIndex;
+  const myIdx = isHost ? 0 : 1;
 
   if (match) {
-  cards[i1].isMatched = true;
-  cards[i2].isMatched = true;
+    cards[i1].isMatched = true;
+    cards[i2].isMatched = true;
 
-  // cộng điểm
-  if (isHost) scores[0] += 10;
-  else scores[1] += 10;
-  lastScorerIsHost = isHost; // ghi nhận ai vừa ăn cặp này, dùng để xử lý hòa điểm sau này
+    // combo: ăn liên tiếp không trượt thì được cộng thêm điểm thưởng
+    streaks[myIdx] += 1;
+    const bonus = (streaks[myIdx] - 1) * 5;
+    scores[myIdx] += 10 + bonus;
+    lastScorerIsHost = isHost; // ghi nhận ai vừa ăn cặp này, dùng để xử lý hòa điểm sau này
 
-  updateScoreboard();
+    updateScoreboard();
 
-  // gửi điểm sang người còn lại
-  sendMessage({ type: 'scoreUpdate', scores });
+    // gửi điểm + combo sang người còn lại
+    sendMessage({ type: 'scoreUpdate', scores, streaks });
 
-  lockBoard = false;
-  renderBoard();
-  broadcastFullState(isHost); // vẫn giữ lượt hiện tại
-} else {
+    lockBoard = false;
+    renderBoard();
+
+    // hiệu ứng: âm thanh nền + tiếng combo tăng cao độ theo streak, confetti, thẻ nảy lên
+    playSound(matchSound);
+    playComboTone(streaks[myIdx]);
+    launchConfetti(Math.min(10 + streaks[myIdx] * 4, 40));
+    [i1, i2].forEach((idx) => {
+      const el = boardEl.children[idx];
+      if (!el) return;
+      el.classList.add('match-pop');
+      setTimeout(() => el.classList.remove('match-pop'), 400);
+    });
+
+    broadcastFullState(isHost); // vẫn giữ lượt hiện tại
+  } else {
+    // đoán sai: mất combo ngay lập tức, phản hồi bằng rung nhẹ + âm thanh trầm
+    streaks[myIdx] = 0;
+    updateScoreboard();
+    playMissTone();
+    [i1, i2].forEach((idx) => {
+      const el = boardEl.children[idx];
+      if (!el) return;
+      el.classList.add('miss-shake');
+      setTimeout(() => el.classList.remove('miss-shake'), 400);
+    });
+
     setTimeout(() => {
       cards[i1].isFaceUp = false;
       cards[i2].isFaceUp = false;
@@ -523,7 +621,7 @@ function evaluateMatch(i1, i2) {
 }
 
 function broadcastFullState(turnIsHost) {
-  sendMessage({ type: "syncFullState", cards, turnIsHost, mode: currentMode, scores, lastScorerIsHost });
+  sendMessage({ type: "syncFullState", cards, turnIsHost, mode: currentMode, scores, streaks, lastScorerIsHost });
   isMyTurn = (turnIsHost === isHost);
   updateTurnIndicator();
 }
@@ -788,4 +886,17 @@ function updateScoreboard() {
 
   player1ScoreEl.textContent = scores[0];
   player2ScoreEl.textContent = scores[1];
+
+  updateStreakBadge(player1StreakEl, streaks[0]);
+  updateStreakBadge(player2StreakEl, streaks[1]);
+}
+
+function updateStreakBadge(el, streak) {
+  if (streak >= 2) {
+    el.textContent = `🔥 Combo x${streak}`;
+    el.classList.remove('hidden');
+  } else {
+    el.textContent = '';
+    el.classList.add('hidden');
+  }
 }

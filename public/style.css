@@ -408,3 +408,61 @@ button.danger {
   font-size:1.4rem;
   color:#ff5d8f;
 }
+
+.streak-badge {
+  display: block;
+  font-style: normal;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #ff8f3d;
+  margin-top: 2px;
+  min-height: 1em;
+}
+
+/* ---------- Hiệu ứng ăn cặp / đoán sai ---------- */
+
+.card.match-pop .card-inner {
+  animation: matchPop 0.35s ease;
+}
+
+@keyframes matchPop {
+  0%   { transform: rotateY(180deg) scale(1); }
+  40%  { transform: rotateY(180deg) scale(1.15); }
+  100% { transform: rotateY(180deg) scale(1); }
+}
+
+.card.miss-shake .card-inner {
+  animation: missShake 0.4s ease;
+}
+
+@keyframes missShake {
+  0%, 100% { transform: rotateY(180deg) translateX(0); }
+  20%      { transform: rotateY(180deg) translateX(-6px); }
+  40%      { transform: rotateY(180deg) translateX(6px); }
+  60%      { transform: rotateY(180deg) translateX(-4px); }
+  80%      { transform: rotateY(180deg) translateX(4px); }
+}
+
+/* ---------- Confetti khi ăn cặp ---------- */
+
+.confetti-burst {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1500;
+  overflow: hidden;
+}
+
+.confetti-piece {
+  position: absolute;
+  width: 8px;
+  height: 12px;
+  border-radius: 2px;
+  opacity: 0.95;
+  animation: confettiFall 1s ease-out forwards;
+}
+
+@keyframes confettiFall {
+  0%   { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+  100% { transform: translate(var(--dx), 260px) rotate(var(--rot)); opacity: 0; }
+}
