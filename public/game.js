@@ -101,6 +101,7 @@ const statusText = document.getElementById("statusText");
 const boardEl = document.getElementById("board");
 const turnIndicator = document.getElementById("turnIndicator");
 const muteBtn = document.getElementById("muteBtn");
+const musicToggleBtn = document.getElementById("musicToggleBtn");
 const voiceStatus = document.getElementById("voiceStatus");
 const restartBtn = document.getElementById("restartBtn");
 const leaveBtn = document.getElementById("leaveBtn");
@@ -312,6 +313,10 @@ function handleServerMessage(msg) {
         currentSymbols = SYMBOL_SETS[currentMode];
         modeIndicator.textContent = MODE_LABELS[currentMode];
       }
+      if (Array.isArray(msg.scores)) {
+        scores = msg.scores;
+        updateScoreboard();
+      }
       cards = msg.cards;
       isMyTurn = msg.turnIsHost === isHost;
       renderBoard();
@@ -337,8 +342,8 @@ function handleServerMessage(msg) {
 }
 
 // ============ Game logic ============
-function setupNewGame() {
-	scores = [0, 0];
+function setupNewGame(resetScores = true) {
+	if (resetScores) scores = [0, 0];
 updateScoreboard();
   const pairCount = cardCount / 2;
   const deck = [];
@@ -460,7 +465,7 @@ function evaluateMatch(i1, i2) {
 }
 
 function broadcastFullState(turnIsHost) {
-  sendMessage({ type: "syncFullState", cards, turnIsHost, mode: currentMode });
+  sendMessage({ type: "syncFullState", cards, turnIsHost, mode: currentMode, scores });
   isMyTurn = (turnIsHost === isHost);
   updateTurnIndicator();
 }
@@ -498,7 +503,7 @@ const nextIndex = Math.min(currentLevel - 1, LEVELS.length - 1);
 cardCount = LEVELS[nextIndex];
 
       if (isHost) {
-        setupNewGame();
+        setupNewGame(false); // qua màn: giữ nguyên điểm đã cộng dồn, không reset
       }
     }, 2500);
 
@@ -703,6 +708,14 @@ muteBtn.addEventListener("click", () => {
   localStream.getAudioTracks().forEach(track => track.enabled = !isMuted);
   muteBtn.classList.toggle("muted", isMuted);
   muteBtn.textContent = isMuted ? "🔇" : "🎤";
+});
+
+let isMusicMuted = false;
+musicToggleBtn.addEventListener("click", () => {
+  isMusicMuted = !isMusicMuted;
+  bgm.muted = isMusicMuted;
+  musicToggleBtn.classList.toggle("muted", isMusicMuted);
+  musicToggleBtn.textContent = isMusicMuted ? "🔇" : "🎵";
 });
 
 function updateScoreboard() {
