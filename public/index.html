@@ -25,6 +25,18 @@
       </div>
     </div>
 
+    <div class="mode-select">
+      <p class="mode-label">Chọn màn bắt đầu</p>
+      <div class="mode-options level-options" id="joinLevelOptions">
+        <button class="mode-btn level-btn active" data-level="0">1️⃣<span>20 thẻ</span></button>
+        <button class="mode-btn level-btn" data-level="1">2️⃣<span>24 thẻ</span></button>
+        <button class="mode-btn level-btn" data-level="2">3️⃣<span>30 thẻ</span></button>
+        <button class="mode-btn level-btn" data-level="3">4️⃣<span>36 thẻ</span></button>
+        <button class="mode-btn level-btn" data-level="4">5️⃣<span>42 thẻ</span></button>
+        <button class="mode-btn level-btn" data-level="5">6️⃣<span>48 thẻ</span></button>
+      </div>
+    </div>
+
     <input id="roomInput" type="text" placeholder="Nhập mã phòng (vd: YEU123)" maxlength="12" autocapitalize="characters" />
     <button id="joinBtn">Vào phòng</button>
     <p id="statusText" class="status"></p>
@@ -83,14 +95,26 @@
   <div id="changeModeOverlay" class="win-overlay hidden">
     <div class="win-box">
       <h2>🔀 Đổi chế độ chơi</h2>
-      <p class="mode-label">Chọn xong sẽ bắt đầu ván mới từ màn 1</p>
+      <p class="mode-label">Chọn chủ đề</p>
       <div class="mode-options" id="inGameModeOptions">
         <button class="mode-btn" data-mode="tonghop">🎉<span>Tổng hợp</span></button>
         <button class="mode-btn" data-mode="hoathinh">🎭<span>Hoạt hình</span></button>
         <button class="mode-btn" data-mode="convat">🐾<span>Con vật</span></button>
         <button class="mode-btn" data-mode="hoaqua">🍎<span>Hoa quả</span></button>
       </div>
-      <button id="closeChangeModeBtn" class="danger" style="margin-top:14px;">Đóng</button>
+      <p class="mode-label" style="margin-top:14px;">Chọn màn bắt đầu</p>
+      <div class="mode-options level-options" id="inGameLevelOptions">
+        <button class="mode-btn level-btn" data-level="0">1️⃣<span>20 thẻ</span></button>
+        <button class="mode-btn level-btn" data-level="1">2️⃣<span>24 thẻ</span></button>
+        <button class="mode-btn level-btn" data-level="2">3️⃣<span>30 thẻ</span></button>
+        <button class="mode-btn level-btn" data-level="3">4️⃣<span>36 thẻ</span></button>
+        <button class="mode-btn level-btn" data-level="4">5️⃣<span>42 thẻ</span></button>
+        <button class="mode-btn level-btn" data-level="5">6️⃣<span>48 thẻ</span></button>
+      </div>
+      <div style="display:flex; gap:10px; justify-content:center; margin-top:14px;">
+        <button id="confirmChangeModeBtn">✅ Bắt đầu</button>
+        <button id="closeChangeModeBtn" class="danger">Đóng</button>
+      </div>
     </div>
   </div>
 

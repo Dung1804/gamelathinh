@@ -35,8 +35,15 @@ let currentMode = "tonghop";
 let currentSymbols = SYMBOL_SETS[currentMode];
 
 const LEVELS = [20, 24, 30, 36, 42, 48];
-let currentLevel = 1;
 let cardCount = LEVELS[0]; // bắt đầu 20 thẻ
+let selectedLevelIndex = 0; // màn được chọn ở màn hình vào phòng / đổi chế độ (0 = Màn 1)
+
+// số màn hiện tại luôn được suy ra trực tiếp từ cardCount (nguồn dữ liệu đã đồng bộ qua mạng),
+// không dùng biến đếm riêng nữa để tránh bị lệch giữa các máy
+function getLevelNumber(count) {
+  const idx = LEVELS.indexOf(count);
+  return idx === -1 ? null : idx + 1;
+}
 const STUN_SERVERS = [
   { urls: "stun:stun.relay.metered.ca:80" },
   {
@@ -91,6 +98,9 @@ const changeModeBtn = document.getElementById('changeModeBtn');
 const changeModeOverlay = document.getElementById('changeModeOverlay');
 const closeChangeModeBtn = document.getElementById('closeChangeModeBtn');
 const inGameModeBtns = document.querySelectorAll('#inGameModeOptions .mode-btn');
+const joinLevelBtns = document.querySelectorAll('#joinLevelOptions .level-btn');
+const inGameLevelBtns = document.querySelectorAll('#inGameLevelOptions .level-btn');
+const confirmChangeModeBtn = document.getElementById('confirmChangeModeBtn');
 
 const player1NameEl = document.getElementById('player1Name');
 const player2NameEl = document.getElementById('player2Name');
@@ -171,9 +181,19 @@ modeBtns.forEach((btn) => {
   });
 });
 
+joinLevelBtns.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    joinLevelBtns.forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    selectedLevelIndex = Number(btn.dataset.level);
+  });
+});
+
 // ============ Đổi chế độ chơi giữa chừng (không cần rời phòng) ============
 changeModeBtn.addEventListener("click", () => {
   inGameModeBtns.forEach((b) => b.classList.toggle("active", b.dataset.mode === currentMode));
+  const curLevelIdx = Math.max(0, LEVELS.indexOf(cardCount));
+  inGameLevelBtns.forEach((b) => b.classList.toggle("active", Number(b.dataset.level) === curLevelIdx));
   changeModeOverlay.classList.remove("hidden");
 });
 
@@ -183,23 +203,36 @@ closeChangeModeBtn.addEventListener("click", () => {
 
 inGameModeBtns.forEach((btn) => {
   btn.addEventListener("click", () => {
-    const newMode = btn.dataset.mode;
-    changeModeOverlay.classList.add("hidden");
-    if (newMode === currentMode) return;
-    applyModeChange(newMode);
+    inGameModeBtns.forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
   });
 });
 
-function applyModeChange(newMode) {
+inGameLevelBtns.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    inGameLevelBtns.forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+  });
+});
+
+confirmChangeModeBtn.addEventListener("click", () => {
+  const chosenModeBtn = document.querySelector('#inGameModeOptions .mode-btn.active');
+  const chosenLevelBtn = document.querySelector('#inGameLevelOptions .level-btn.active');
+  const newMode = chosenModeBtn ? chosenModeBtn.dataset.mode : currentMode;
+  const newLevelIndex = chosenLevelBtn ? Number(chosenLevelBtn.dataset.level) : 0;
+  changeModeOverlay.classList.add("hidden");
+  applyModeChange(newMode, newLevelIndex);
+});
+
+function applyModeChange(newMode, levelIndex = 0) {
   if (isHost) {
     currentMode = SYMBOL_SETS[newMode] ? newMode : currentMode;
     currentSymbols = SYMBOL_SETS[currentMode];
     modeIndicator.textContent = MODE_LABELS[currentMode];
-    currentLevel = 1;
-    cardCount = LEVELS[0];
+    cardCount = LEVELS[levelIndex] ?? LEVELS[0];
     setupNewGame();
   } else {
-    sendMessage({ type: "changeModeRequest", mode: newMode });
+    sendMessage({ type: "changeModeRequest", mode: newMode, level: levelIndex });
     turnIndicator.textContent = "Đã gửi yêu cầu đổi chế độ, đang chờ xác nhận...";
   }
 }
@@ -215,6 +248,7 @@ function joinRoom() {
     statusText.textContent = "Nhập mã phòng trước đã nhé";
     return;
   }
+  cardCount = LEVELS[selectedLevelIndex] ?? LEVELS[0];
 
   const protocol = location.protocol === "https:" ? "wss:" : "ws:";
   ws = new WebSocket(`${protocol}//${location.host}`);
@@ -268,7 +302,7 @@ function handleServerMessage(msg) {
         turnIndicator.textContent = "Đã vào phòng, đang đồng bộ...";
         setBoardWaiting("⏳ Đang đồng bộ trò chơi...");
       }
-      levelIndicator.textContent = `Màn ${currentLevel}/${LEVELS.length}`;
+      levelIndicator.textContent = `Màn ${getLevelNumber(cardCount) ?? 1}/${LEVELS.length}`;
       startVoiceCall(); // chuẩn bị mic, chờ peer để gọi
       break;
 
@@ -293,8 +327,8 @@ function handleServerMessage(msg) {
         currentMode = msg.mode;
         currentSymbols = SYMBOL_SETS[currentMode];
         modeIndicator.textContent = MODE_LABELS[currentMode];
-        currentLevel = 1;
-        cardCount = LEVELS[0];
+        const lvlIdx = Number.isInteger(msg.level) ? msg.level : 0;
+        cardCount = LEVELS[lvlIdx] ?? LEVELS[0];
         setupNewGame();
       }
       break;
@@ -508,20 +542,20 @@ if (scores[0] > scores[1]) {
   resultText = '🤝 Hòa!';
 }
 
+const finishedIdx = LEVELS.indexOf(cardCount);
+const finishedLevelNumber = finishedIdx === -1 ? '?' : finishedIdx + 1;
+
 levelText.textContent =
-  `Màn ${currentLevel} hoàn thành - ${cardCount} thẻ\n${resultText}`;
+  `Màn ${finishedLevelNumber} hoàn thành - ${cardCount} thẻ\n${resultText}`;
 
     winOverlay.classList.remove("hidden");
 
     setTimeout(() => {
       winOverlay.classList.add("hidden");
 
-      // tăng màn
-currentLevel++;
-
-// lấy số thẻ theo danh sách LEVELS
-const nextIndex = Math.min(currentLevel - 1, LEVELS.length - 1);
-cardCount = LEVELS[nextIndex];
+      // sang màn kế tiếp, tính lại từ cardCount thực tế nên không thể lệch pha giữa 2 máy
+      const nextIdx = Math.min(finishedIdx === -1 ? 0 : finishedIdx + 1, LEVELS.length - 1);
+      cardCount = LEVELS[nextIdx];
 
       if (isHost) {
         setupNewGame(false); // qua màn: giữ nguyên điểm đã cộng dồn, không reset

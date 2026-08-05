@@ -98,6 +98,14 @@ button.danger {
   gap: 10px;
 }
 
+.level-options {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.level-btn {
+  font-size: 1.2rem;
+}
+
 .mode-btn {
   display: flex;
   flex-direction: column;
