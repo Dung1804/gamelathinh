@@ -79,6 +79,7 @@ let lockBoard = false;
 let myName = '';
 let playerNames = ['Người chơi 1', 'Người chơi 2'];
 let scores = [0, 0]; // [host, guest]
+let lastScorerIsHost = null; // ai vừa ăn được cặp gần nhất, dùng để phân định khi hòa điểm
 let peerConnection = null;
 let localStream = null;
 let isMuted = false;
@@ -351,6 +352,9 @@ function handleServerMessage(msg) {
         scores = msg.scores;
         updateScoreboard();
       }
+      if (typeof msg.lastScorerIsHost === 'boolean') {
+        lastScorerIsHost = msg.lastScorerIsHost;
+      }
       cards = msg.cards;
       isMyTurn = msg.turnIsHost === isHost;
       renderBoard();
@@ -376,7 +380,7 @@ function handleServerMessage(msg) {
 }
 
 // ============ Game logic ============
-function setupNewGame(resetScores = true) {
+function setupNewGame(resetScores = true, starterIsHost = true) {
 	if (resetScores) scores = [0, 0];
 updateScoreboard();
   const pairCount = cardCount / 2;
@@ -389,10 +393,8 @@ updateScoreboard();
 
   shuffle(deck);
   cards = deck;
-  isMyTurn = true;
   renderBoard();
-  updateTurnIndicator();
-  broadcastFullState(true);
+  broadcastFullState(starterIsHost); // set isMyTurn đúng theo người bắt đầu + đồng bộ sang người kia
 }
 
 function shuffle(arr) {
@@ -496,6 +498,7 @@ function evaluateMatch(i1, i2) {
   // cộng điểm
   if (isHost) scores[0] += 10;
   else scores[1] += 10;
+  lastScorerIsHost = isHost; // ghi nhận ai vừa ăn cặp này, dùng để xử lý hòa điểm sau này
 
   updateScoreboard();
 
@@ -520,7 +523,7 @@ function evaluateMatch(i1, i2) {
 }
 
 function broadcastFullState(turnIsHost) {
-  sendMessage({ type: "syncFullState", cards, turnIsHost, mode: currentMode, scores });
+  sendMessage({ type: "syncFullState", cards, turnIsHost, mode: currentMode, scores, lastScorerIsHost });
   isMyTurn = (turnIsHost === isHost);
   updateTurnIndicator();
 }
@@ -533,14 +536,20 @@ function updateTurnIndicator() {
     playSound(winSound);
 
     let resultText = '';
+let winnerIsHost = null; // null = hòa
 
 if (scores[0] > scores[1]) {
   resultText = `🏆 ${playerNames[0]} thắng!`;
+  winnerIsHost = true;
 } else if (scores[1] > scores[0]) {
   resultText = `🏆 ${playerNames[1]} thắng!`;
+  winnerIsHost = false;
 } else {
   resultText = '🤝 Hòa!';
 }
+
+// ai thắng thì màn sau được đánh trước; nếu hòa thì lấy người vừa ăn cặp cuối cùng
+const nextStarterIsHost = winnerIsHost !== null ? winnerIsHost : (lastScorerIsHost ?? true);
 
 const finishedIdx = LEVELS.indexOf(cardCount);
 const finishedLevelNumber = finishedIdx === -1 ? '?' : finishedIdx + 1;
@@ -558,7 +567,7 @@ levelText.textContent =
       cardCount = LEVELS[nextIdx];
 
       if (isHost) {
-        setupNewGame(false); // qua màn: giữ nguyên điểm đã cộng dồn, không reset
+        setupNewGame(false, nextStarterIsHost); // qua màn: giữ điểm, đổi người đánh trước theo kết quả màn vừa xong
       }
     }, 2500);
 
