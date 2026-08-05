@@ -379,7 +379,8 @@ else if (cards.length === 42) cols = 7; // 7 x 6
 else if (cards.length >= 48) cols = 8;  // 8 x 6
 
 boardEl.classList.remove("waiting");
-boardEl.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+boardEl.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+boardEl.style.setProperty('--cols', cols);
   boardEl.innerHTML = "";
   cards.forEach((card, index) => {
     const cardEl = document.createElement("div");
