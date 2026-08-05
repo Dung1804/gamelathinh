@@ -278,35 +278,6 @@ enableAudioBtn.addEventListener("click", () => {
     });
 });
 
-// ============ Debug log hiện trên màn hình (thay cho console) ============
-const debugLogEl = document.getElementById("debugLog");
-const toggleLogBtn = document.getElementById("toggleLogBtn");
-
-toggleLogBtn.addEventListener("click", () => {
-  debugLogEl.classList.toggle("hidden");
-});
-
-function logDebug(message, isError = false) {
-  const time = new Date().toLocaleTimeString("vi-VN", { hour12: false });
-  const line = document.createElement("div");
-  if (isError) line.className = "log-error";
-  line.textContent = `[${time}] ${message}`;
-  debugLogEl.appendChild(line);
-  debugLogEl.scrollTop = debugLogEl.scrollHeight;
-  // giữ tối đa 200 dòng để tránh phình to
-  while (debugLogEl.children.length > 200) {
-    debugLogEl.removeChild(debugLogEl.firstChild);
-  }
-}
-
-// bắt luôn các lỗi JS chưa được xử lý, để không bỏ sót gì
-window.addEventListener("error", (e) => {
-  logDebug(`Lỗi JS: ${e.message}`, true);
-});
-window.addEventListener("unhandledrejection", (e) => {
-  logDebug(`Lỗi Promise: ${e.reason}`, true);
-});
-
 // ============ Chọn chế độ chơi ============
 modeBtns.forEach((btn) => {
   btn.addEventListener("click", () => {
