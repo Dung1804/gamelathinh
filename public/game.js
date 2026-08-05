@@ -274,7 +274,6 @@ enableAudioBtn.addEventListener("click", () => {
     })
     .catch((err) => {
       console.error("Vẫn không phát được audio:", err);
-      logDebug("Vẫn không phát được audio: " + err.message, true);
     });
 });
 
@@ -386,21 +385,18 @@ async function joinRoom() {
   ws.onopen = () => {
     ws.send(JSON.stringify({ type: 'join', room, name: myName, mode: currentMode }));
     statusText.textContent = "Đang vào phòng...";
-    logDebug(`WS đã mở, gửi join room=${room}`);
   };
 
   ws.onmessage = (event) => {
-    logDebug(`Nhận: ${event.data.slice(0, 150)}`);
     handleServerMessage(JSON.parse(event.data));
   };
 
   ws.onclose = () => {
     statusText.textContent = "Mất kết nối server, thử tải lại trang";
-    logDebug("WS đã đóng", true);
   };
 
   ws.onerror = (err) => {
-    logDebug("WS lỗi: " + JSON.stringify(err), true);
+    console.error("WS lỗi:", err);
   };
 }
 
@@ -422,7 +418,6 @@ function handleServerMessage(msg) {
       currentSymbols = SYMBOL_SETS[currentMode] || []; // với 'kyniem', danh sách ảnh thật sẽ đến từ syncFullState
       modeIndicator.textContent = MODE_LABELS[currentMode];
       fetchMemoryPhotos(); // để sẵn kho ảnh phòng khi cần đổi chế độ giữa chừng
-      logDebug(`Đã join phòng, role: ${isHost ? "HOST" : "GUEST"}, chế độ: ${currentMode}`);
       joinScreen.classList.add("hidden");
       gameScreen.classList.remove("hidden");
 	  bgm.volume = 0.35;
@@ -439,7 +434,6 @@ function handleServerMessage(msg) {
       break;
 
     case "peerJoined":
-      logDebug("Người kia đã vào phòng");
       // có người thứ 2 vào -> nếu mình là host thì chia bài + bắt đầu gọi
       if (isHost) {
         setupNewGame();
@@ -448,7 +442,6 @@ function handleServerMessage(msg) {
       break;
 
     case "peerLeft":
-      logDebug("Người kia đã rời phòng", true);
       turnIndicator.textContent = "Người kia đã rời phòng 😢";
       voiceStatus.textContent = "Voice: đã ngắt";
       break;
@@ -815,13 +808,11 @@ function startVoiceCall() {
       .then((stream) => {
         localStream = stream;
         voiceStatus.textContent = "Voice: đã bật mic, chờ kết nối...";
-        logDebug(`Mic OK, số audio track: ${stream.getAudioTracks().length}`);
         return stream;
       })
       .catch((err) => {
         voiceStatus.textContent = "Voice: không lấy được mic (kiểm tra quyền truy cập)";
         console.error(err);
-        logDebug(`Lỗi lấy mic: ${err.name} - ${err.message}`, true);
         throw err;
       });
   }
@@ -844,19 +835,14 @@ async function createPeerConnection() {
   pendingCandidates = [];
   remoteDescriptionSet = false;
   disconnectTimer = null;
-  logDebug("Đã tạo RTCPeerConnection mới");
 
   if (localStream) {
     localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-    logDebug(`Đã thêm ${localStream.getTracks().length} track local vào kết nối`);
-  } else {
-    logDebug("CẢNH BÁO: không có localStream, không gửi được audio", true);
   }
 
   peerConnection.ontrack = (event) => {
     remoteAudio.srcObject = event.streams[0];
     voiceStatus.textContent = "Voice: đã kết nối 🎧";
-    logDebug(`ontrack: nhận được stream, số track: ${event.streams[0].getTracks().length}`);
 
     // Safari/iOS thường chặn autoplay -> thử play() thủ công, nếu bị chặn thì hiện nút bấm
     const playPromise = remoteAudio.play();
@@ -871,19 +857,11 @@ async function createPeerConnection() {
   peerConnection.onicecandidate = (event) => {
     if (event.candidate) {
       sendMessage({ type: "webrtc-ice", candidate: event.candidate });
-      logDebug(`Gửi ICE candidate: ${event.candidate.type} (${event.candidate.protocol})`);
-    } else {
-      logDebug("Đã gom xong tất cả ICE candidate (gathering complete)");
     }
-  };
-
-  peerConnection.oniceconnectionstatechange = () => {
-    logDebug(`ICE connection state: ${peerConnection.iceConnectionState}`);
   };
 
   peerConnection.onconnectionstatechange = () => {
     console.log("Connection state:", peerConnection.connectionState);
-    logDebug(`Connection state: ${peerConnection.connectionState}`);
 
     if (peerConnection.connectionState === "connected") {
       // kết nối lại thành công -> hủy báo mất kết nối nếu đang chờ
@@ -922,11 +900,9 @@ async function callPeer() {
   const offer = await peerConnection.createOffer();
   await peerConnection.setLocalDescription(offer);
   sendMessage({ type: "webrtc-offer", offer });
-  logDebug("Đã gửi offer (mình là host, chủ động gọi)");
 }
 
 async function handleOffer(offer) {
-  logDebug("Nhận offer, đang xử lý...");
   await createPeerConnection();
   await peerConnection.setRemoteDescription(offer);
   remoteDescriptionSet = true;
@@ -934,7 +910,6 @@ async function handleOffer(offer) {
   const answer = await peerConnection.createAnswer();
   await peerConnection.setLocalDescription(answer);
   sendMessage({ type: "webrtc-answer", answer });
-  logDebug("Đã gửi answer");
 }
 
 async function handleAnswer(answer) {
@@ -942,34 +917,28 @@ async function handleAnswer(answer) {
   await peerConnection.setRemoteDescription(answer);
   remoteDescriptionSet = true;
   await flushPendingCandidates();
-  logDebug("Đã nhận và xử lý answer");
 }
 
 async function handleRemoteIce(candidate) {
   if (!peerConnection || !remoteDescriptionSet) {
     // remoteDescription chưa sẵn sàng -> xếp hàng đợi, xử lý sau khi flushPendingCandidates() chạy
     pendingCandidates.push(candidate);
-    logDebug(`Xếp hàng đợi 1 ICE candidate (chưa có remoteDescription), hàng đợi: ${pendingCandidates.length}`);
     return;
   }
   try {
     await peerConnection.addIceCandidate(candidate);
-    logDebug("Đã thêm ICE candidate từ đối phương");
   } catch (err) {
     console.error("Lỗi ICE candidate:", err);
-    logDebug(`Lỗi thêm ICE candidate: ${err.message}`, true);
   }
 }
 
 async function flushPendingCandidates() {
-  logDebug(`Xử lý ${pendingCandidates.length} candidate đang chờ trong hàng đợi`);
   while (pendingCandidates.length > 0) {
     const candidate = pendingCandidates.shift();
     try {
       await peerConnection.addIceCandidate(candidate);
     } catch (err) {
       console.error("Lỗi ICE candidate (hàng đợi):", err);
-      logDebug(`Lỗi ICE candidate trong hàng đợi: ${err.message}`, true);
     }
   }
 }
