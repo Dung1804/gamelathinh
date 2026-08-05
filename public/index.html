@@ -14,6 +14,17 @@
        placeholder="Nhập tên của bạn"
        maxlength="16" />
     <p class="subtitle">Nhập cùng một mã phòng để vào chơi chung nhé</p>
+
+    <div class="mode-select">
+      <p class="mode-label">Chọn chế độ chơi (người vào trước sẽ quyết định)</p>
+      <div class="mode-options" id="joinModeOptions">
+        <button class="mode-btn active" data-mode="tonghop">🎉<span>Tổng hợp</span></button>
+        <button class="mode-btn" data-mode="hoathinh">🎭<span>Hoạt hình</span></button>
+        <button class="mode-btn" data-mode="convat">🐾<span>Con vật</span></button>
+        <button class="mode-btn" data-mode="hoaqua">🍎<span>Hoa quả</span></button>
+      </div>
+    </div>
+
     <input id="roomInput" type="text" placeholder="Nhập mã phòng (vd: YEU123)" maxlength="12" autocapitalize="characters" />
     <button id="joinBtn">Vào phòng</button>
     <p id="statusText" class="status"></p>
@@ -32,6 +43,8 @@
     <strong id="player2Score">0</strong>
   </div>
 </div>
+      <span id="modeIndicator" class="mode-indicator"></span>
+      <span id="levelIndicator" class="mode-indicator"></span>
       <span id="turnIndicator" class="turn-indicator">Đang chờ...</span>
       <div class="voice-controls">
         <button id="muteBtn" class="icon-btn" title="Tắt/bật mic">🎤</button>
@@ -42,6 +55,7 @@
     <div id="board" class="board"></div>
 
     <div class="bottombar">
+      <button id="changeModeBtn">🔀 Đổi chế độ</button>
       <button id="restartBtn">Chơi lại</button>
       <button id="leaveBtn" class="danger">Rời phòng</button>
     </div>
@@ -62,6 +76,20 @@
     <div class="win-box">
       <h2>🎉 Qua màn!</h2>
       <p id="levelText"></p>
+    </div>
+  </div>
+
+  <div id="changeModeOverlay" class="win-overlay hidden">
+    <div class="win-box">
+      <h2>🔀 Đổi chế độ chơi</h2>
+      <p class="mode-label">Chọn xong sẽ bắt đầu ván mới từ màn 1</p>
+      <div class="mode-options" id="inGameModeOptions">
+        <button class="mode-btn" data-mode="tonghop">🎉<span>Tổng hợp</span></button>
+        <button class="mode-btn" data-mode="hoathinh">🎭<span>Hoạt hình</span></button>
+        <button class="mode-btn" data-mode="convat">🐾<span>Con vật</span></button>
+        <button class="mode-btn" data-mode="hoaqua">🍎<span>Hoa quả</span></button>
+      </div>
+      <button id="closeChangeModeBtn" class="danger" style="margin-top:14px;">Đóng</button>
     </div>
   </div>
 

@@ -44,12 +44,20 @@ const isFirst = room.size === 0;
 
 ws.playerName = String(msg.name || '').trim() || (isFirst ? 'Người chơi 1' : 'Người chơi 2');
 
+// chế độ chơi do người vào phòng trước (host) quyết định; người vào sau dùng chung chế độ đó
+const VALID_MODES = ['hoathinh', 'convat', 'hoaqua', 'tonghop'];
+if (isFirst) {
+  const requestedMode = String(msg.mode || '').trim();
+  room.mode = VALID_MODES.includes(requestedMode) ? requestedMode : 'tonghop';
+}
+
 room.add(ws);
 ws.roomCode = code;
       ws.send(JSON.stringify({
   type: 'joined',
   isHost: isFirst,
-  peersInRoom: room.size
+  peersInRoom: room.size,
+  mode: room.mode
 }));
 
 // ===== THÊM ĐOẠN NÀY =====

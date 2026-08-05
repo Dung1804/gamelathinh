@@ -1,9 +1,38 @@
 // ============ Cấu hình ============
-const SYMBOLS = [
-  "🍎","🍌","🍇","🍓","🍒","🍑","🍍","🥝",
-  "🥥","🍉","🍋","🍐","🍈","🥭","🍊","🍏",
-  "🐶","🐱","🐼","🐸","🦊","🐵","🐰","🐻"
-];
+
+// Mỗi bộ có đủ 24 biểu tượng để dùng được cho cả màn khó nhất (48 thẻ = 24 cặp)
+const SYMBOL_SETS = {
+  hoathinh: [
+    "🤖","👽","👻","🎃","🧙‍♂️","🧛‍♂️","🧟‍♂️","🦸‍♂️",
+    "🦹‍♂️","🧚‍♀️","🧞‍♂️","🐲","🦄","👑","🎭","🎪",
+    "🎨","🎮","🕹️","🎲","🧩","🪄","⚡","🌟"
+  ],
+  convat: [
+    "🐶","🐱","🐼","🐸","🦊","🐵","🐰","🐻",
+    "🦁","🐯","🐨","🐷","🐮","🐔","🦆","🐢",
+    "🐙","🦋","🐝","🐞","🦉","🐺","🦓","🦒"
+  ],
+  hoaqua: [
+    "🍎","🍌","🍇","🍓","🍒","🍑","🍍","🥝",
+    "🥥","🍉","🍋","🍐","🍈","🥭","🍊","🍏",
+    "🫐","🍅","🌽","🥑","🥕","🍆","🫒","🍠"
+  ],
+  tonghop: [
+    "🍎","🍌","🍇","🍓","🍒","🍉","🍋","🥭",
+    "🐶","🐱","🐼","🦊","🐰","🦁","🐯","🐨",
+    "🤖","👽","👻","🎃","🦄","👑","🎭","🌟"
+  ]
+};
+
+const MODE_LABELS = {
+  hoathinh: "🎭 Hoạt hình",
+  convat: "🐾 Con vật",
+  hoaqua: "🍎 Hoa quả",
+  tonghop: "🎉 Tổng hợp"
+};
+
+let currentMode = "tonghop";
+let currentSymbols = SYMBOL_SETS[currentMode];
 
 const LEVELS = [20, 24, 30, 36, 42, 48];
 let currentLevel = 1;
@@ -55,6 +84,13 @@ const joinScreen = document.getElementById("joinScreen");
 const gameScreen = document.getElementById("gameScreen");
 const roomInput = document.getElementById("roomInput");
 const playerNameInput = document.getElementById('playerNameInput');
+const modeBtns = document.querySelectorAll('#joinModeOptions .mode-btn');
+const modeIndicator = document.getElementById('modeIndicator');
+const levelIndicator = document.getElementById('levelIndicator');
+const changeModeBtn = document.getElementById('changeModeBtn');
+const changeModeOverlay = document.getElementById('changeModeOverlay');
+const closeChangeModeBtn = document.getElementById('closeChangeModeBtn');
+const inGameModeBtns = document.querySelectorAll('#inGameModeOptions .mode-btn');
 
 const player1NameEl = document.getElementById('player1Name');
 const player2NameEl = document.getElementById('player2Name');
@@ -125,6 +161,48 @@ window.addEventListener("unhandledrejection", (e) => {
   logDebug(`Lỗi Promise: ${e.reason}`, true);
 });
 
+// ============ Chọn chế độ chơi ============
+modeBtns.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    modeBtns.forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    currentMode = btn.dataset.mode;
+  });
+});
+
+// ============ Đổi chế độ chơi giữa chừng (không cần rời phòng) ============
+changeModeBtn.addEventListener("click", () => {
+  inGameModeBtns.forEach((b) => b.classList.toggle("active", b.dataset.mode === currentMode));
+  changeModeOverlay.classList.remove("hidden");
+});
+
+closeChangeModeBtn.addEventListener("click", () => {
+  changeModeOverlay.classList.add("hidden");
+});
+
+inGameModeBtns.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const newMode = btn.dataset.mode;
+    changeModeOverlay.classList.add("hidden");
+    if (newMode === currentMode) return;
+    applyModeChange(newMode);
+  });
+});
+
+function applyModeChange(newMode) {
+  if (isHost) {
+    currentMode = SYMBOL_SETS[newMode] ? newMode : currentMode;
+    currentSymbols = SYMBOL_SETS[currentMode];
+    modeIndicator.textContent = MODE_LABELS[currentMode];
+    currentLevel = 1;
+    cardCount = LEVELS[0];
+    setupNewGame();
+  } else {
+    sendMessage({ type: "changeModeRequest", mode: newMode });
+    turnIndicator.textContent = "Đã gửi yêu cầu đổi chế độ, đang chờ xác nhận...";
+  }
+}
+
 // ============ Join room ============
 joinBtn.addEventListener("click", joinRoom);
 roomInput.addEventListener("keydown", (e) => { if (e.key === "Enter") joinRoom(); });
@@ -141,7 +219,7 @@ function joinRoom() {
   ws = new WebSocket(`${protocol}//${location.host}`);
 
   ws.onopen = () => {
-    ws.send(JSON.stringify({ type: 'join', room, name: myName }));
+    ws.send(JSON.stringify({ type: 'join', room, name: myName, mode: currentMode }));
     statusText.textContent = "Đang vào phòng...";
     logDebug(`WS đã mở, gửi join room=${room}`);
   };
@@ -173,16 +251,23 @@ function handleServerMessage(msg) {
   break;
     case "joined":
       isHost = msg.isHost;
-      logDebug(`Đã join phòng, role: ${isHost ? "HOST" : "GUEST"}`);
+      // server luôn trả về chế độ chơi thật sự của phòng (do người vào trước quyết định)
+      currentMode = SYMBOL_SETS[msg.mode] ? msg.mode : "tonghop";
+      currentSymbols = SYMBOL_SETS[currentMode];
+      modeIndicator.textContent = MODE_LABELS[currentMode];
+      logDebug(`Đã join phòng, role: ${isHost ? "HOST" : "GUEST"}, chế độ: ${currentMode}`);
       joinScreen.classList.add("hidden");
       gameScreen.classList.remove("hidden");
 	  bgm.volume = 0.35;
 	  bgm.play().catch(() => {});
       if (isHost) {
         turnIndicator.textContent = "Đang chờ người kia vào phòng...";
+        setBoardWaiting("⏳ Đang chờ người chơi khác vào phòng...");
       } else {
         turnIndicator.textContent = "Đã vào phòng, đang đồng bộ...";
+        setBoardWaiting("⏳ Đang đồng bộ trò chơi...");
       }
+      levelIndicator.textContent = `Màn ${currentLevel}/${LEVELS.length}`;
       startVoiceCall(); // chuẩn bị mic, chờ peer để gọi
       break;
 
@@ -201,6 +286,18 @@ function handleServerMessage(msg) {
       voiceStatus.textContent = "Voice: đã ngắt";
       break;
 
+    case "changeModeRequest":
+      // chỉ host mới thực sự áp dụng thay đổi để tránh 2 bên tự set lệch nhau
+      if (isHost && SYMBOL_SETS[msg.mode]) {
+        currentMode = msg.mode;
+        currentSymbols = SYMBOL_SETS[currentMode];
+        modeIndicator.textContent = MODE_LABELS[currentMode];
+        currentLevel = 1;
+        cardCount = LEVELS[0];
+        setupNewGame();
+      }
+      break;
+
     case "flipCard":
       applyRemoteFlip(msg.index);
       break;
@@ -210,6 +307,11 @@ function handleServerMessage(msg) {
   updateScoreboard();
   break;
     case "syncFullState":
+      if (msg.mode && SYMBOL_SETS[msg.mode] && msg.mode !== currentMode) {
+        currentMode = msg.mode;
+        currentSymbols = SYMBOL_SETS[currentMode];
+        modeIndicator.textContent = MODE_LABELS[currentMode];
+      }
       cards = msg.cards;
       isMyTurn = msg.turnIsHost === isHost;
       renderBoard();
@@ -271,6 +373,7 @@ else if (cards.length === 36) cols = 6; // 6 x 6
 else if (cards.length === 42) cols = 7; // 7 x 6
 else if (cards.length >= 48) cols = 8;  // 8 x 6
 
+boardEl.classList.remove("waiting");
 boardEl.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
   boardEl.innerHTML = "";
   cards.forEach((card, index) => {
@@ -279,12 +382,21 @@ boardEl.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
     cardEl.innerHTML = `
       <div class="card-inner">
         <div class="card-face card-back"></div>
-        <div class="card-face card-front">${SYMBOLS[card.symbolIndex]}</div>
+        <div class="card-face card-front">${currentSymbols[card.symbolIndex]}</div>
       </div>
     `;
     cardEl.addEventListener("click", () => onCardClick(index));
     boardEl.appendChild(cardEl);
   });
+
+  // hiện màn đang chơi dựa trên số thẻ thực tế, luôn đúng dù đổi chế độ hay đồng bộ lại
+  const idx = LEVELS.indexOf(cards.length);
+  levelIndicator.textContent = `Màn ${idx === -1 ? "?" : idx + 1}/${LEVELS.length}`;
+}
+
+function setBoardWaiting(text) {
+  boardEl.classList.add("waiting");
+  boardEl.innerHTML = `<div class="board-placeholder">${text}</div>`;
 }
 
 function onCardClick(index) {
@@ -348,7 +460,7 @@ function evaluateMatch(i1, i2) {
 }
 
 function broadcastFullState(turnIsHost) {
-  sendMessage({ type: "syncFullState", cards, turnIsHost });
+  sendMessage({ type: "syncFullState", cards, turnIsHost, mode: currentMode });
   isMyTurn = (turnIsHost === isHost);
   updateTurnIndicator();
 }
