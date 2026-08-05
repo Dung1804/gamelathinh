@@ -368,19 +368,37 @@ function shuffle(arr) {
   }
 }
 
-function renderBoard() {
- let cols = 4;
+function getColsForCount(count) {
+  let cols = 4;
+  if (count === 20) cols = 5;      // 5 x 4
+  else if (count === 24) cols = 6; // 6 x 4
+  else if (count === 30) cols = 6; // 6 x 5
+  else if (count === 36) cols = 6; // 6 x 6
+  else if (count === 42) cols = 7; // 7 x 6
+  else if (count >= 48) cols = 8;  // 8 x 6
+  return cols;
+}
 
-if (cards.length === 20) cols = 5;      // 5 x 4
-else if (cards.length === 24) cols = 6; // 6 x 4
-else if (cards.length === 30) cols = 6; // 6 x 5
-else if (cards.length === 36) cols = 6; // 6 x 6
-else if (cards.length === 42) cols = 7; // 7 x 6
-else if (cards.length >= 48) cols = 8;  // 8 x 6
+// đo độ rộng thực tế của board sau khi render rồi tính cỡ chữ emoji theo px,
+// KHÔNG dùng vw vì viewport rộng (PC) khác hẳn độ rộng thật của từng ô (do có max-width)
+function updateCardFontSize(cols) {
+  const boardWidth = boardEl.clientWidth;
+  if (!boardWidth || !cols) return;
+  const gapPx = 8; // phải khớp với "gap" trong CSS .board
+  const cardWidth = (boardWidth - gapPx * (cols - 1)) / cols;
+  const fontSize = Math.max(14, Math.min(34, cardWidth * 0.42));
+  boardEl.style.setProperty('--emoji-size', `${fontSize}px`);
+}
+
+window.addEventListener('resize', () => {
+  if (cards.length) updateCardFontSize(getColsForCount(cards.length));
+});
+
+function renderBoard() {
+ let cols = getColsForCount(cards.length);
 
 boardEl.classList.remove("waiting");
 boardEl.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
-boardEl.style.setProperty('--cols', cols);
   boardEl.innerHTML = "";
   cards.forEach((card, index) => {
     const cardEl = document.createElement("div");
@@ -398,6 +416,8 @@ boardEl.style.setProperty('--cols', cols);
   // hiện màn đang chơi dựa trên số thẻ thực tế, luôn đúng dù đổi chế độ hay đồng bộ lại
   const idx = LEVELS.indexOf(cards.length);
   levelIndicator.textContent = `Màn ${idx === -1 ? "?" : idx + 1}/${LEVELS.length}`;
+
+  updateCardFontSize(cols);
 }
 
 function setBoardWaiting(text) {
